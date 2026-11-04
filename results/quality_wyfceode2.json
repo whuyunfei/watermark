@@ -1,0 +1,11 @@
+{
+  "metric": "FID (clean-fid, Inception-v3)",
+  "scheme": "4ch r=9..16 radius-pair \u00b11 field 0.60, center 31.5",
+  "reference": "CelebA real face photographs (nielsr/CelebA-faces)",
+  "n_ref": 200,
+  "n_clean": 50,
+  "n_wm": 50,
+  "fid_clean_to_faces": 229.3034,
+  "fid_wm_to_faces": 225.6469,
+  "delta_wm_minus_clean": -3.6565
+}

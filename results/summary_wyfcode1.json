@@ -1,0 +1,1403 @@
+{
+  "scheme": "pk_ring_anyangle",
+  "label": "B3 any-angle (full 0-360, no deskew)",
+  "protocol": {
+    "embed": "z0 only",
+    "detect": "key + image + VAE one-shot",
+    "attack": "rotate(expand+resize), 2 random Unif[0,360) per seed",
+    "quality": "visual PNG only (no SSIM/PSNR/radial)"
+  },
+  "prompt": "a photo of a beautiful woman",
+  "steps": 15,
+  "n_seeds": 48,
+  "angles_per_seed": 2,
+  "seed_angles": {
+    "8": [
+      357.0556269904652,
+      312.9185109126744
+    ],
+    "19": [
+      123.59563492261678,
+      236.00115684968165
+    ],
+    "30": [
+      225.25142145603397,
+      311.84883713991667
+    ],
+    "41": [
+      264.56195242392994,
+      169.54653374403458
+    ],
+    "52": [
+      209.00052531473963,
+      99.84598530290101
+    ],
+    "63": [
+      297.5377809381259,
+      65.43169544721357
+    ],
+    "74": [
+      298.6792419048633,
+      121.78974581794363
+    ],
+    "85": [
+      138.75950896573784,
+      155.93116322538492
+    ],
+    "96": [
+      23.0258288746197,
+      290.1194988971693
+    ],
+    "107": [
+      350.18456407237755,
+      121.99579101789165
+    ],
+    "118": [
+      357.8413712621259,
+      291.7628197358842
+    ],
+    "129": [
+      270.08889733015087,
+      25.438542925060172
+    ],
+    "140": [
+      338.05351628630615,
+      61.37226291461458
+    ],
+    "151": [
+      280.6978713845829,
+      28.450739655119683
+    ],
+    "162": [
+      210.1996751119031,
+      296.17669098578233
+    ],
+    "173": [
+      139.92539647600077,
+      306.01043156281764
+    ],
+    "184": [
+      50.379986454373736,
+      346.489278355189
+    ],
+    "195": [
+      315.67214276911494,
+      306.1066581941398
+    ],
+    "206": [
+      291.7125819444181,
+      188.45170481418222
+    ],
+    "217": [
+      95.00859209569283,
+      250.38250726787896
+    ],
+    "228": [
+      122.53801494828981,
+      217.86987543032816
+    ],
+    "239": [
+      188.16952624401605,
+      336.45725079176566
+    ],
+    "250": [
+      112.95941130206809,
+      258.6586624755549
+    ],
+    "261": [
+      81.57229350990673,
+      4.315820957986962
+    ],
+    "272": [
+      356.1324441544897,
+      15.614964741271562
+    ],
+    "283": [
+      153.12135747548191,
+      182.66736800021135
+    ],
+    "294": [
+      205.72079453758812,
+      45.39040908665938
+    ],
+    "305": [
+      209.8059861008857,
+      69.12426816083499
+    ],
+    "316": [
+      66.83223276953491,
+      347.04226594736696
+    ],
+    "327": [
+      4.221760964316714,
+      232.80121947663503
+    ],
+    "338": [
+      51.632872222021135,
+      87.7047456554744
+    ],
+    "349": [
+      47.78140498055948,
+      140.2769675529245
+    ],
+    "360": [
+      339.0887623610063,
+      71.37001146536555
+    ],
+    "371": [
+      20.83407089482257,
+      292.97085827790784
+    ],
+    "382": [
+      28.95341701938645,
+      105.9910866198451
+    ],
+    "393": [
+      301.1125826006488,
+      91.1125786446457
+    ],
+    "404": [
+      129.60127493020056,
+      107.94979330294086
+    ],
+    "415": [
+      234.71419861682452,
+      237.13436828433908
+    ],
+    "426": [
+      199.69429984075626,
+      19.58722442211947
+    ],
+    "437": [
+      103.93059234872956,
+      211.0774407806511
+    ],
+    "448": [
+      167.14446789307402,
+      180.65919653569668
+    ],
+    "459": [
+      187.29988576306883,
+      165.13166129846798
+    ],
+    "470": [
+      274.66333047284866,
+      231.14749941249647
+    ],
+    "481": [
+      108.49571502430898,
+      166.34252579748983
+    ],
+    "492": [
+      16.447365887799933,
+      335.42598336986026
+    ],
+    "503": [
+      37.01302643599683,
+      70.76166500012702
+    ],
+    "514": [
+      50.54275934777331,
+      23.1807093790986
+    ],
+    "525": [
+      281.30993897148477,
+      309.6874874730663
+    ]
+  },
+  "pos_seeds": [
+    8,
+    19,
+    30,
+    41,
+    52,
+    63,
+    74,
+    85,
+    96,
+    107,
+    118,
+    129,
+    140,
+    151,
+    162,
+    173,
+    184,
+    195,
+    206,
+    217,
+    228,
+    239,
+    250,
+    261,
+    272,
+    283,
+    294,
+    305,
+    316,
+    327,
+    338,
+    349,
+    360,
+    371,
+    382,
+    393,
+    404,
+    415,
+    426,
+    437,
+    448,
+    459,
+    470,
+    481,
+    492,
+    503,
+    514,
+    525
+  ],
+  "threshold": 0.5,
+  "neg_peaks": [
+    0.28,
+    0.3105,
+    0.0,
+    0.0,
+    0.214,
+    0.9316,
+    0.2563,
+    0.0
+  ],
+  "pr": 0.9922,
+  "pr_pass": true,
+  "precision": 0.9762,
+  "recall": 0.8542,
+  "f1": 0.9111,
+  "tp": 41,
+  "tn": 7,
+  "fp": 1,
+  "fn": 7,
+  "clean_pass": 41,
+  "clean_total": 48,
+  "clean_pass_rate": 0.8542,
+  "rot_pass": 45,
+  "rot_total": 96,
+  "rot_pass_rate": 0.4688,
+  "per_seed": [
+    {
+      "seed": 8,
+      "angles": [
+        357.06,
+        312.92
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.7567,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 357.06,
+          "pass": true,
+          "peak": 0.7068
+        },
+        {
+          "deg": 312.92,
+          "pass": true,
+          "peak": 0.7974
+        }
+      ]
+    },
+    {
+      "seed": 19,
+      "angles": [
+        123.6,
+        236.0
+      ],
+      "clean_pass": false,
+      "clean_peak": 0.4119,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 123.6,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 236.0,
+          "pass": false,
+          "peak": 0.1111
+        }
+      ]
+    },
+    {
+      "seed": 30,
+      "angles": [
+        225.25,
+        311.85
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 225.25,
+          "pass": true,
+          "peak": 0.5464
+        },
+        {
+          "deg": 311.85,
+          "pass": true,
+          "peak": 0.8186
+        }
+      ]
+    },
+    {
+      "seed": 41,
+      "angles": [
+        264.56,
+        169.55
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.85,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 264.56,
+          "pass": false,
+          "peak": 0.4599
+        },
+        {
+          "deg": 169.55,
+          "pass": false,
+          "peak": 0.1622
+        }
+      ]
+    },
+    {
+      "seed": 52,
+      "angles": [
+        209.0,
+        99.85
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.6807,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 209.0,
+          "pass": true,
+          "peak": 0.6195
+        },
+        {
+          "deg": 99.85,
+          "pass": true,
+          "peak": 0.7359
+        }
+      ]
+    },
+    {
+      "seed": 63,
+      "angles": [
+        297.54,
+        65.43
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 297.54,
+          "pass": false,
+          "peak": 0.4484
+        },
+        {
+          "deg": 65.43,
+          "pass": true,
+          "peak": 0.6444
+        }
+      ]
+    },
+    {
+      "seed": 74,
+      "angles": [
+        298.68,
+        121.79
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.6895,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 298.68,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 121.79,
+          "pass": false,
+          "peak": 0.2581
+        }
+      ]
+    },
+    {
+      "seed": 85,
+      "angles": [
+        138.76,
+        155.93
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.7322,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 138.76,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 155.93,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    },
+    {
+      "seed": 96,
+      "angles": [
+        23.03,
+        290.12
+      ],
+      "clean_pass": false,
+      "clean_peak": 0.3243,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 23.03,
+          "pass": false,
+          "peak": 0.1652
+        },
+        {
+          "deg": 290.12,
+          "pass": false,
+          "peak": 0.1243
+        }
+      ]
+    },
+    {
+      "seed": 107,
+      "angles": [
+        350.18,
+        122.0
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.8281,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 350.18,
+          "pass": true,
+          "peak": 0.652
+        },
+        {
+          "deg": 122.0,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    },
+    {
+      "seed": 118,
+      "angles": [
+        357.84,
+        291.76
+      ],
+      "clean_pass": false,
+      "clean_peak": 0.4987,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 357.84,
+          "pass": false,
+          "peak": 0.4981
+        },
+        {
+          "deg": 291.76,
+          "pass": false,
+          "peak": 0.4368
+        }
+      ]
+    },
+    {
+      "seed": 129,
+      "angles": [
+        270.09,
+        25.44
+      ],
+      "clean_pass": false,
+      "clean_peak": 0.373,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 270.09,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 25.44,
+          "pass": false,
+          "peak": 0.2043
+        }
+      ]
+    },
+    {
+      "seed": 140,
+      "angles": [
+        338.05,
+        61.37
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.9425,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 338.05,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 61.37,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    },
+    {
+      "seed": 151,
+      "angles": [
+        280.7,
+        28.45
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.7669,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 280.7,
+          "pass": true,
+          "peak": 0.929
+        },
+        {
+          "deg": 28.45,
+          "pass": true,
+          "peak": 0.5081
+        }
+      ]
+    },
+    {
+      "seed": 162,
+      "angles": [
+        210.2,
+        296.18
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.8369,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 210.2,
+          "pass": false,
+          "peak": 0.4243
+        },
+        {
+          "deg": 296.18,
+          "pass": false,
+          "peak": 0.3723
+        }
+      ]
+    },
+    {
+      "seed": 173,
+      "angles": [
+        139.93,
+        306.01
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.7691,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 139.93,
+          "pass": true,
+          "peak": 1.0
+        },
+        {
+          "deg": 306.01,
+          "pass": true,
+          "peak": 0.8611
+        }
+      ]
+    },
+    {
+      "seed": 184,
+      "angles": [
+        50.38,
+        346.49
+      ],
+      "clean_pass": false,
+      "clean_peak": 0.3284,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 50.38,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 346.49,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    },
+    {
+      "seed": 195,
+      "angles": [
+        315.67,
+        306.11
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.902,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 315.67,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 306.11,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    },
+    {
+      "seed": 206,
+      "angles": [
+        291.71,
+        188.45
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.9496,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 291.71,
+          "pass": false,
+          "peak": 0.1455
+        },
+        {
+          "deg": 188.45,
+          "pass": true,
+          "peak": 0.5693
+        }
+      ]
+    },
+    {
+      "seed": 217,
+      "angles": [
+        95.01,
+        250.38
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.5452,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 95.01,
+          "pass": false,
+          "peak": 0.1459
+        },
+        {
+          "deg": 250.38,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    },
+    {
+      "seed": 228,
+      "angles": [
+        122.54,
+        217.87
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.6761,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 122.54,
+          "pass": false,
+          "peak": 0.3112
+        },
+        {
+          "deg": 217.87,
+          "pass": true,
+          "peak": 0.9197
+        }
+      ]
+    },
+    {
+      "seed": 239,
+      "angles": [
+        188.17,
+        336.46
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.534,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 188.17,
+          "pass": true,
+          "peak": 0.6489
+        },
+        {
+          "deg": 336.46,
+          "pass": true,
+          "peak": 0.6306
+        }
+      ]
+    },
+    {
+      "seed": 250,
+      "angles": [
+        112.96,
+        258.66
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.6745,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 112.96,
+          "pass": false,
+          "peak": 0.1139
+        },
+        {
+          "deg": 258.66,
+          "pass": false,
+          "peak": 0.1483
+        }
+      ]
+    },
+    {
+      "seed": 261,
+      "angles": [
+        81.57,
+        4.32
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 81.57,
+          "pass": true,
+          "peak": 0.9565
+        },
+        {
+          "deg": 4.32,
+          "pass": true,
+          "peak": 1.0
+        }
+      ]
+    },
+    {
+      "seed": 272,
+      "angles": [
+        356.13,
+        15.61
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.9351,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 356.13,
+          "pass": true,
+          "peak": 0.8784
+        },
+        {
+          "deg": 15.61,
+          "pass": true,
+          "peak": 0.6557
+        }
+      ]
+    },
+    {
+      "seed": 283,
+      "angles": [
+        153.12,
+        182.67
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.5554,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 153.12,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 182.67,
+          "pass": false,
+          "peak": 0.3063
+        }
+      ]
+    },
+    {
+      "seed": 294,
+      "angles": [
+        205.72,
+        45.39
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 205.72,
+          "pass": true,
+          "peak": 0.7643
+        },
+        {
+          "deg": 45.39,
+          "pass": true,
+          "peak": 0.6866
+        }
+      ]
+    },
+    {
+      "seed": 305,
+      "angles": [
+        209.81,
+        69.12
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.5426,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 209.81,
+          "pass": false,
+          "peak": 0.0
+        },
+        {
+          "deg": 69.12,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    },
+    {
+      "seed": 316,
+      "angles": [
+        66.83,
+        347.04
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 66.83,
+          "pass": false,
+          "peak": 0.2671
+        },
+        {
+          "deg": 347.04,
+          "pass": true,
+          "peak": 0.7246
+        }
+      ]
+    },
+    {
+      "seed": 327,
+      "angles": [
+        4.22,
+        232.8
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 4.22,
+          "pass": true,
+          "peak": 0.9429
+        },
+        {
+          "deg": 232.8,
+          "pass": false,
+          "peak": 0.0702
+        }
+      ]
+    },
+    {
+      "seed": 338,
+      "angles": [
+        51.63,
+        87.7
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.5324,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 51.63,
+          "pass": false,
+          "peak": 0.2805
+        },
+        {
+          "deg": 87.7,
+          "pass": true,
+          "peak": 0.5828
+        }
+      ]
+    },
+    {
+      "seed": 349,
+      "angles": [
+        47.78,
+        140.28
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.8692,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 47.78,
+          "pass": true,
+          "peak": 0.6619
+        },
+        {
+          "deg": 140.28,
+          "pass": true,
+          "peak": 0.7242
+        }
+      ]
+    },
+    {
+      "seed": 360,
+      "angles": [
+        339.09,
+        71.37
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.8988,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 339.09,
+          "pass": true,
+          "peak": 0.6462
+        },
+        {
+          "deg": 71.37,
+          "pass": false,
+          "peak": 0.4684
+        }
+      ]
+    },
+    {
+      "seed": 371,
+      "angles": [
+        20.83,
+        292.97
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 20.83,
+          "pass": true,
+          "peak": 0.6509
+        },
+        {
+          "deg": 292.97,
+          "pass": false,
+          "peak": 0.3262
+        }
+      ]
+    },
+    {
+      "seed": 382,
+      "angles": [
+        28.95,
+        105.99
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.8849,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 28.95,
+          "pass": false,
+          "peak": 0.2862
+        },
+        {
+          "deg": 105.99,
+          "pass": false,
+          "peak": 0.4089
+        }
+      ]
+    },
+    {
+      "seed": 393,
+      "angles": [
+        301.11,
+        91.11
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.9658,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 301.11,
+          "pass": false,
+          "peak": 0.1065
+        },
+        {
+          "deg": 91.11,
+          "pass": true,
+          "peak": 0.9998
+        }
+      ]
+    },
+    {
+      "seed": 404,
+      "angles": [
+        129.6,
+        107.95
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.892,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 129.6,
+          "pass": false,
+          "peak": 0.3371
+        },
+        {
+          "deg": 107.95,
+          "pass": false,
+          "peak": 0.4716
+        }
+      ]
+    },
+    {
+      "seed": 415,
+      "angles": [
+        234.71,
+        237.13
+      ],
+      "clean_pass": false,
+      "clean_peak": 0.4077,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 234.71,
+          "pass": true,
+          "peak": 0.7604
+        },
+        {
+          "deg": 237.13,
+          "pass": true,
+          "peak": 0.6383
+        }
+      ]
+    },
+    {
+      "seed": 426,
+      "angles": [
+        199.69,
+        19.59
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.757,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 199.69,
+          "pass": true,
+          "peak": 0.5781
+        },
+        {
+          "deg": 19.59,
+          "pass": false,
+          "peak": 0.1631
+        }
+      ]
+    },
+    {
+      "seed": 437,
+      "angles": [
+        103.93,
+        211.08
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.9476,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 103.93,
+          "pass": true,
+          "peak": 0.5151
+        },
+        {
+          "deg": 211.08,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    },
+    {
+      "seed": 448,
+      "angles": [
+        167.14,
+        180.66
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 167.14,
+          "pass": true,
+          "peak": 0.6265
+        },
+        {
+          "deg": 180.66,
+          "pass": true,
+          "peak": 0.8445
+        }
+      ]
+    },
+    {
+      "seed": 459,
+      "angles": [
+        187.3,
+        165.13
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 187.3,
+          "pass": true,
+          "peak": 0.9646
+        },
+        {
+          "deg": 165.13,
+          "pass": true,
+          "peak": 0.9887
+        }
+      ]
+    },
+    {
+      "seed": 470,
+      "angles": [
+        274.66,
+        231.15
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.5694,
+      "rot_pass": 1,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 274.66,
+          "pass": false,
+          "peak": 0.235
+        },
+        {
+          "deg": 231.15,
+          "pass": true,
+          "peak": 0.5687
+        }
+      ]
+    },
+    {
+      "seed": 481,
+      "angles": [
+        108.5,
+        166.34
+      ],
+      "clean_pass": false,
+      "clean_peak": 0.1733,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 108.5,
+          "pass": true,
+          "peak": 0.876
+        },
+        {
+          "deg": 166.34,
+          "pass": true,
+          "peak": 0.666
+        }
+      ]
+    },
+    {
+      "seed": 492,
+      "angles": [
+        16.45,
+        335.43
+      ],
+      "clean_pass": true,
+      "clean_peak": 1.0,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 16.45,
+          "pass": true,
+          "peak": 0.617
+        },
+        {
+          "deg": 335.43,
+          "pass": true,
+          "peak": 0.5708
+        }
+      ]
+    },
+    {
+      "seed": 503,
+      "angles": [
+        37.01,
+        70.76
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.6925,
+      "rot_pass": 2,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 37.01,
+          "pass": true,
+          "peak": 0.9395
+        },
+        {
+          "deg": 70.76,
+          "pass": true,
+          "peak": 0.8102
+        }
+      ]
+    },
+    {
+      "seed": 514,
+      "angles": [
+        50.54,
+        23.18
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.5571,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 50.54,
+          "pass": false,
+          "peak": 0.1379
+        },
+        {
+          "deg": 23.18,
+          "pass": false,
+          "peak": 0.3077
+        }
+      ]
+    },
+    {
+      "seed": 525,
+      "angles": [
+        281.31,
+        309.69
+      ],
+      "clean_pass": true,
+      "clean_peak": 0.6918,
+      "rot_pass": 0,
+      "rot_total": 2,
+      "rot": [
+        {
+          "deg": 281.31,
+          "pass": false,
+          "peak": 0.3204
+        },
+        {
+          "deg": 309.69,
+          "pass": false,
+          "peak": 0.0
+        }
+      ]
+    }
+  ],
+  "visual_dir": "D:\\watermark-code\\poc-watermark\\rotation_wm\\output\\anyangle_largesample_20260922_195201\\visual",
+  "visual_seeds": [
+    8,
+    19,
+    30,
+    41,
+    52,
+    63,
+    74,
+    85,
+    96,
+    107
+  ]
+}
