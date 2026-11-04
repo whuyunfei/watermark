@@ -1,0 +1,352 @@
+% RingID-Latent v4 — draft manuscript (fill \placeholder{} / \todo{} as data arrive)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{array}
+\usepackage{enumitem}
+
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, citecolor=blue!60!black}
+
+% --- Highlighted metric macros ---
+\newcommand{\placeholder}[1]{\textcolor{gray!70!black}{\textit{#1}}}
+\newcommand{\todo}[1]{\textcolor{red!70!black}{\textbf{[TODO: #1]}}}
+\newcommand{\metricgood}[1]{\textbf{\textcolor{green!40!black}{#1}}}
+\newcommand{\metricbox}[2]{%
+  \begin{tikzpicture}
+    \node[draw=orange!80!black, fill=orange!5, rounded corners=3pt, inner sep=6pt, text width=0.95\linewidth] {%
+      \textbf{#1}\\[2pt]#2};
+  \end{tikzpicture}%
+}
+
+\title{%
+  \textbf{RingID-Latent v4:}\\[4pt]
+  VAE-Only Fourier Ring Watermarks with Coarse Rotation Search\\[6pt]
+  \large (Generation-Level SD Watermarking without DDIM at Verify Time)
+}
+\author{%
+  \placeholder{Author names}\\
+  \placeholder{Affiliation}\\
+  \texttt{\placeholder{email}}
+}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study \emph{generation-level} watermarks for Stable Diffusion (SD) that remain detectable after full-pipeline decoding and common post-processing, under a \emph{minimal detector} threat model: only the public key, the suspect image, and the frozen VAE encoder---no DDIM inversion, no generation seed, no prompt, and no oracle access to the denoising trajectory.
+Our lineage adapts RingID-style radial Fourier structure from the latent domain, but departs from the original RingID verifier, which requires DDIM inversion and generation metadata that ordinary end users cannot plausibly run at scale.
+A further advantage is \textbf{deployability}: verifiers need only a \emph{public} VAE and key material, so \textbf{ordinary users} (via a browser extension, mobile app, or third-party audit service) can confirm provenance \emph{without} hosting the full denoising UNet---critical when models are \textbf{large-parameter}, API-only, or \textbf{weights are not public}.
+
+\textbf{RingID-Latent v4} keeps the v3 embedder (phase-preserving ring residual with center-lobe suppression) and adds a \textbf{10° step rotation search} over $\pm180°$ before VAE--FFT ring correlation, yielding strong full-angle robustness while staying inside the VAE-only detector class.
+
+We report SD benchmarks on CPU (15-step DDIM, portrait prompt) with \metricgood{prominent detection metrics} and paired perceptual FID; cells marked \placeholder{--} await future runs or external baselines.
+\end{abstract}
+
+\section{Introduction}
+
+\paragraph{Who can verify, and with what?}
+Many consumer-facing generative-AI systems expose \emph{visible} or \emph{metadata-linked} provenance signals: a casual viewer or platform moderator can often tell \emph{which service} produced an image without running a diffusion inverse.
+By contrast, the RingID family~\placeholder{(Ci et al., 2024)} targets \emph{invisible} latent fingerprints whose official detector inverts the diffusion process (DDIM) and compares multi-channel latent statistics to a key-derived template.
+That design is powerful for laboratory evaluation but poorly aligned with ``ordinary user'' verification: inversion needs the UNet, scheduler, step count, and typically the empty prompt / classifier-free guidance settings used at generation time.
+End users are not expected to download multi-billion-parameter checkpoints or replicate the provider's exact sampling stack just to answer ``was this image watermarked by key~$K$?''
+
+\paragraph{Verification without user-run DDIM (key advantage).}
+RingID-Latent v4 is designed so \textbf{the user never runs DDIM} at verify time.
+The consumer-facing workflow is: upload an image $\rightarrow$ fixed VAE encode $\rightarrow$ ring score $\rightarrow$ accept/reject against~$\tau$.
+This is deliberately small enough to ship as a \emph{client-side} or \emph{neutral third-party} checker.
+By contrast, DDIM-based RingID ties verification to the \textbf{same generative backbone} used at creation time; when that backbone is proprietary, updated weekly, or too large for local inference, DDIM detections become \textbf{provider-only} unless the host exposes a costly inversion API.
+Our threat model therefore targets an open ecosystem: journalists, regulators, and users can validate marks even when the original diffusion UNet is \textbf{not published}.
+
+\paragraph{Large and closed models.}
+The gap widens for modern text-to-image stacks (SDXL, FLUX-class, video diffusion, etc.):
+\begin{itemize}[nosep]
+  \item \textbf{Compute:} each DDIM inversion is a full reverse denoising pass over the UNet; VAE-only scoring is orders of magnitude lighter and parallelizes across rotation hypotheses without touching billion-parameter weights.
+  \item \textbf{Access:} closed-weight or license-restricted models forbid redistribution of inversion weights; a VAE-only detector depends only on components that are routinely published or replaceable (e.g., SD-family VAEs).
+  \item \textbf{Governance:} third parties cannot audit a closed API's outputs if verification requires the API owner's secret model snapshot; VAE+key verification is \textbf{portable} across hosts that share embed conventions.
+\end{itemize}
+\todo{Quantify latency ratio VAE-only vs.\ 15-step DDIM invert on same hardware.}
+
+\paragraph{Our goal.}
+We keep RingID's \emph{ring-shaped spectral signature} intuition but re-target the \textbf{PRC-latent threat model} already used in this codebase: embed inside the SD forward pass; detect with \textbf{key + image + VAE only}.
+We explicitly compare against:
+\begin{itemize}[nosep]
+  \item \textbf{RingID (paper reproduction)} --- \texttt{ringidcheck}: z$_0$ embed + \textbf{DDIM inversion detect} (original threat model).
+  \item \textbf{RingID-Latent v2/v3} --- final-latent ring inject + VAE--FFT detect \emph{without} rotation search.
+  \item \textbf{RingID-Latent v4 (ours)} --- v3 embed + \textbf{coarse rotation search} at detect.
+\end{itemize}
+
+\metricbox{Headline results (this repository, SD 1.x, CPU eval)}{
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    \textbf{Benchmark} & \textbf{v3 (VAE, 0°)} & \textbf{v4 (+10° search)} \\
+    \midrule
+    F1 @ 100 pos / 100 clean neg & \placeholder{run pending} & \metricgood{1.00} (TP=100, TN=100) \\
+    Random full-angle rotation (100 trials) & \placeholder{--} & \metricgood{98\%} (98/100) \\
+    Mild $\pm5°$ (10 angles, seed 8) & \metricgood{10/10} & \metricgood{10/10} \\
+    Full-angle stress (35 angles, seed 8) & \placeholder{59/60 on 20$\times$3 batch} & \metricgood{35/35} \\
+    Paired FID (clean $\leftrightarrow$ wm, $n{=}8$) & \placeholder{--} & \metricgood{22.83} \\
+    \bottomrule
+  \end{tabular}
+}
+
+\section{Background and Related Work}
+
+\subsection{Original RingID (DDIM detector)}
+RingID embeds key-dependent ring patterns and auxiliary noise in initial latents and recovers them after \textbf{DDIM inversion} of the released RGB image, with optional rotation handling in the paper setup.
+Detection correlation therefore lives in \emph{denoised latent space along the learned score path}, not in a single VAE encode of pixels.
+
+\subsection{Visible / platform provenance vs.\ latent fingerprints}
+\placeholder{Discuss C2PA, SynthID, visible badges, etc.}
+Ordinary users discriminate ``who generated this'' via UI affordances; latent schemes aim for imperceptibility and cryptographic binding to a key.
+We argue both layers are complementary; this paper focuses on the \textbf{latent + minimal detector} layer.
+
+\subsection{PRC-latent line in poc-watermark}
+Prior internal baselines (\texttt{prc\_latent}) embed LDPC parity in z$_0$ and detect via VAE latents without inversion; rotation robustness is limited without explicit angular machinery.
+RingID-Latent trades LDPC payloads for \textbf{rotation-equivariant ring energy} in Fourier space.
+
+\section{Threat Models (central comparison)}
+
+\begin{table}[h]
+  \centering
+  \caption{Verifier knowledge and operations: paper RingID vs.\ RingID-Latent v4.}
+  \label{tab:threat}
+  \small
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    & \textbf{RingID (paper / \texttt{ringidcheck})} & \textbf{RingID-Latent v4} \\
+    \midrule
+    Public key & \checkmark & \checkmark \\
+    Suspect RGB image & \checkmark & \checkmark \\
+    VAE encode & optional / indirect & \checkmark\ (primary) \\
+    DDIM / inversion & \checkmark\ \textbf{required} & \textbf{forbidden} \\
+    Prompt, seed, steps & needed for invert & \textbf{not used} \\
+    Pixel deskew / user rotation UI & paper pipeline & \textbf{10° search} (server-side) \\
+    User must run DDIM locally? & \textbf{Yes} (full invert) & \textbf{No} \\
+    Requires public / local UNet weights? & \textbf{Yes} & \textbf{No} \\
+    Feasible on closed API-only models? & \placeholder{Host-only invert API} & \textbf{Yes} (VAE+key) \\
+    Ordinary user / third party can verify? & No (without provider stack) & \textbf{Yes} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Remark on ``ordinary users''.}
+We use ``ordinary user'' in the \emph{operational} sense: anyone with a lightweight client (browser plugin, mobile app, NGO audit tool) that runs a \textbf{fixed public VAE} and ring scorer on uploaded images---\emph{without} installing DDIM, downloading the generator UNet, or knowing the original prompt/seed.
+RingID-paper verification is better classified as \emph{forensic lab} or \emph{generator-host} capability unless the service ships inversion as a managed API; even then, outsiders still depend on the host to run DDIM honestly.
+RingID-Latent v4 decouples \textbf{who generated} (embed, inside the provider) from \textbf{who can check} (any party with the key and VAE module), which is the deployment regime we optimize for.
+
+\section{Method}
+
+\subsection{Embedder (shared v3 / v4)}
+Starting from a standard SD sample with clean Gaussian z$_0$:
+\begin{enumerate}[nosep]
+  \item Run the denoising loop unchanged (no angle search at embed).
+  \item On the final latent $z^\star$, inject low-frequency \textbf{Fourier ring} energy on a key-derived template (channel 3 by default, radii $r{=}1..6$ in latent FFT grid).
+  \item \textbf{v3/v4 embed:} preserve host FFT \emph{phase} on ring bins; apply chessboard alignment; \textbf{center-lobe suppression} on the spatial residual to reduce portrait neck/chest blooming (vs.\ v2 zero-imag imprint).
+  \item Blend with $\alpha{=}0.85$ into the final latent before VAE decode (no z$_0$ ring imprint).
+\end{enumerate}
+
+\subsection{Detector v3 (baseline in family)}
+VAE-encode the image, FFT the selected latent channel, compute Pearson correlation of radial ring samples against the key template at \textbf{0° only}; threshold from unmatched negatives with the same scorer.
+
+\subsection{Detector v4 (contribution)}
+Let $R(\theta)$ be a counter-rotation of the RGB image approximating PIL \texttt{rotate(expand=True)} at angle $\theta$.
+For $\theta \in \{-180°,-170°,\ldots,170°\}$ (36 candidates, step $\Delta{=}10°$):
+\[
+  s(\theta) = \mathrm{Peak}\bigl(\mathrm{FFTRingScore}(\mathrm{VAE}(R(\theta)\,I))\bigr).
+\]
+Accept if $\max_\theta s(\theta) \ge \tau$, with $\tau$ calibrated on clean SD negatives using the \emph{same} rotation search (conservative FP control).
+
+\paragraph{Complexity.}
+Per detect: up to 36 VAE encodes + FFT scores (early exit if 0° exceeds $\tau$).
+\todo{Report median latency vs.\ v3 on CPU/GPU.}
+
+\subsection{Key-derived pseudorandomness}
+\todo{Report pseudorandom metric $\ge 0.99$ rule compliance for ring template bits.}
+\placeholder{--}
+
+\section{Experimental Setup}
+
+\paragraph{Model and generation.}
+Stable Diffusion v1.x (\placeholder{exact model id from \texttt{model\_cache}}), DDIM, 15 steps, $512{\times}512$, prompt \texttt{``a photo of a beautiful woman''} unless noted.
+
+\paragraph{Hardware.}
+Development runs on \textbf{CPU-only} (\todo{add GPU table if available}); timings are not yet normalized.
+
+\paragraph{Metrics (highlighted).}
+\begin{itemize}[nosep]
+  \item \textbf{Detection:} TP/TN/FP/FN, precision, recall, \textbf{F1}, \textbf{AUC} (Mann--Whitney on peak scores).
+  \item \textbf{Rotation pass rate:} fraction of watermarked images verified after random rotation attacks.
+  \item \textbf{Perceptual quality:} \textbf{paired FID} (clean-fid, Inception-v3) between same-seed clean vs.\ watermarked SD outputs; \placeholder{no PSNR/SSIM in primary table per lab protocol}.
+  \item \textbf{Visual QA:} side-by-side PNG galleries (\todo{figure grid}).
+\end{itemize}
+
+\section{Results}
+
+\subsection{Main detection and rotation table}
+
+\begin{table*}[t]
+  \centering
+  \caption{\textbf{Primary benchmarks (fill empty cells as runs complete).}
+  RingID-paper row uses \texttt{ringidcheck} (DDIM); our rows use VAE-only unless noted.}
+  \label{tab:main}
+  \small
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}lcccccc@{}}
+    \toprule
+    \textbf{Scheme} & \textbf{Detector} &
+    \textbf{F1} & \textbf{AUC} &
+    \textbf{Rot.\ pass} & \textbf{Paired FID} $\downarrow$ &
+    \textbf{Notes} \\
+    \midrule
+    RingID (Ci et al.; paper) & DDIM invert &
+    \placeholder{--} & \placeholder{--} &
+    \placeholder{Tab.~1/2} & \placeholder{--} &
+    Needs inversion metadata \\
+    \texttt{ringidcheck} (our repro) & DDIM invert &
+    \todo{same-pipeline F1} & \placeholder{--} &
+    \todo{$\pm75°$ paper claim} & \placeholder{--} &
+    Apples-to-apples SD run \\
+    \texttt{prc\_latent} & VAE only &
+    \placeholder{$\sim$0.80} & \placeholder{--} &
+    \placeholder{unstable $\pm5°$} & \placeholder{--} &
+    Internal baseline \\
+    RingID-Latent v2 & VAE, 0° &
+    \metricgood{1.00 quick} & \metricgood{1.00} &
+    \metricgood{10/10 mild5} & \placeholder{--} &
+    Neck glow (visual) \\
+    RingID-Latent v3 & VAE, 0° &
+    \metricgood{1.00 full quick} & \metricgood{1.00} &
+    \metricgood{10/10 mild5}; \placeholder{59/60} on $20{\times}3$ &
+    \placeholder{--} &
+    PSNR $\approx$26.12 dB (aux.) \\
+    \rowcolor{orange!8}
+    \textbf{RingID-Latent v4 (ours)} & VAE + 10° search &
+    \metricgood{\textbf{1.00}} @100/100 &
+    \metricgood{\textbf{1.00}} &
+    \metricgood{\textbf{98/100}} full-angle; \textbf{35/35} stress &
+    \metricgood{\textbf{22.83}} ($n{=}8$) &
+    Failures: seeds 183 (+2.6°), 188 (+177°) \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\subsection{Large-sample run (100 / 100 / 100)}
+
+\metricbox{Eval \texttt{eval\_n100\_ringid\_latent\_v4\_20261023\_033450}}{
+  \begin{itemize}[nosep]
+    \item 100 watermarked SD positives (seeds 100--199), 100 clean SD negatives (base 10100).
+    \item 100 random rotation angles (seed 100), one per positive; v4 rotation search enabled.
+    \item \metricgood{Detection: F1 = 1.00}, TP=100, TN=100, FP=0, FN=0; threshold $\tau \approx 0.557$.
+    \item \metricgood{Rotation: 98/100} passed; min failing peaks 0.516 (+2.6°), 0.398 (+177.0°).
+  \end{itemize}
+}
+
+\subsection{Perceptual quality (FID)}
+
+\begin{table}[h]
+  \centering
+  \caption{Quick FID (\texttt{fid\_quick\_ringid\_latent\_v4\_20261023\_150024}), CelebA faces reference ($n{=}200$).}
+  \label{tab:fid}
+  \begin{tabular}{@{}lc@{}}
+    \toprule
+    \textbf{Metric} & \textbf{Value} \\
+    \midrule
+    FID(clean SD $\rightarrow$ faces) & 287.00 \\
+    FID(watermarked $\rightarrow$ faces) & 278.50 \\
+    $\Delta$ (wm $-$ clean) to faces & $-8.50$ \\
+    \rowcolor{orange!10}
+    \textbf{FID(clean $\leftrightarrow$ wm), paired, $n{=}8$} & \metricgood{\textbf{22.83}} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\noindent\textbf{Interpretation:} paired FID is the primary watermark-distortion proxy; absolute FID to CelebA is dominated by SD--dataset domain gap, not the watermark alone.
+\todo{Expand to $n{=}32$ seeds; add v2/v3 paired FID and RingID-paper embed.}
+
+\subsection{Visual quality}
+
+Figure~\placeholder{??} shows representative \texttt{quality\_strip} panels (clean $|$ watermarked $|$ rotated) and v3/v2 neck-glow comparisons.
+\todo{Include \texttt{side\_by\_side\_seed8.png} grid.}
+
+\section{Discussion}
+
+\paragraph{v3 vs.\ v4.}
+v3 maximizes detector purity (strict 0° VAE score) but leaves a \textbf{59/60} hole on a 20-image mild-rotation batch at $\pm5°$ without search.
+v4 buys global rotation robustness (\textbf{98--100\%} in our suites) with $\approx$36$\times$ worst-case VAE work and slightly higher FP calibration scores ($\tau$ rises from $\sim$0.41 to $\sim$0.56).
+
+\paragraph{RingID-paper vs.\ our threat model.}
+Paper RingID assumes the verifier can invert with the \emph{same} generative stack---weights, scheduler, and hyperparameters matched to generation.
+That is natural in a paper benchmark but weak for \textbf{democratized verification}: ordinary users and independent auditors typically \textbf{cannot} (and should not need to) run DDIM on a provider-scale UNet.
+We argue the stronger product requirement is: \emph{publish a small, stable detector} (VAE + ring logic + public key) while the multi-billion-parameter denoiser remains private or API-gated.
+Benefits compound for \textbf{large-parameter} and \textbf{non-public-parameter} models: the detector footprint stays bounded, verification cost is predictable, and trust does not collapse to ``only the platform can check its own watermarks.''
+Hosted platforms may still offer VAE-only verify APIs more cheaply than full inversion endpoints, with clearer privacy boundaries (no need to re-run the user's image through the entire generative model).
+\placeholder{User study: can non-experts run DDIM? --}
+\todo{Case study: closed-weight model where only VAE weights are exported.}
+
+\paragraph{Limitations.}
+\begin{itemize}[nosep]
+  \item Low-frequency rings can still tint portraits (mitigated in v3, not eliminated).
+  \item 10° search misses rare alignment edge cases (see 183/188 failures); finer step or chirp sync \todo{future v5}.
+  \item CPU benchmarks; \placeholder{GPU latency table pending}.
+  \item No JPEG / crop / collage robustness table yet (\todo{}).
+  \item RingID-paper numbers on \emph{our} SD pipeline not fully reproduced (\todo{run \texttt{ringidcheck} 100/100/100}).
+\end{itemize}
+
+\section{Conclusion}
+
+RingID-Latent v4 demonstrates that \textbf{RingID-style ring spectra} can survive SD decoding and large rotation attacks under a \textbf{VAE-only} verifier, contrasting with original RingID's \textbf{DDIM-first} detection.
+Crucially, \textbf{ordinary users and third parties can verify without running DDIM}, using only key material and a public VAE---a structural advantage when generators are \textbf{large, API-hosted, or not weight-open}.
+Detection metrics reach \metricgood{F1=1.00} at 100/100 scale; rotation passes \metricgood{98\%} on 100 random angles; paired FID is \metricgood{22.83} on a quick 8-seed pilot.
+
+\appendix
+\section{Reproducibility commands}
+
+\begin{verbatim}
+python -m rotation_wm.eval_n100_f1_rot --scheme ringid_latent_v4 \
+  --seed 100 --angle-seed 100 --n-pos 100 --n-neg 100 --n-rot 100
+
+python -m rotation_wm._eval_fid_scheme_quick --scheme ringid_latent_v4 \
+  --n-seeds 8 --seed-base 100
+
+python -m rotation_wm.test_ringid_eval --scheme ringid_latent_v4 \
+  --angle-range full --n-angles 35 --seed 8 --steps 15
+\end{verbatim}
+
+\section{Placeholder experiment matrix}
+
+\begin{table}[h]
+  \centering
+  \caption{Attacks and baselines (\placeholder{fill as completed}).}
+  \small
+  \begin{tabular}{@{}lcccc@{}}
+    \toprule
+    Attack / setting & v3 & v4 & \texttt{ringidcheck} & \texttt{prc\_latent} \\
+    \midrule
+    JPEG Q=75 & \placeholder{--} & \placeholder{--} & \placeholder{--} & \placeholder{--} \\
+    Center crop 90\% & \placeholder{--} & \placeholder{--} & \placeholder{--} & \placeholder{--} \\
+    Collage / edit & \placeholder{--} & \placeholder{--} & \placeholder{--} & \placeholder{--} \\
+    Pseudorandom $\ge 0.99$ & \placeholder{--} & \placeholder{--} & \placeholder{--} & \placeholder{--} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+\bibitem{ringid2024}
+\placeholder{Ci et al., RingID, 2024 --- full BibTeX entry.}
+\bibitem{sd15}
+\placeholder{Rombach et al., Stable Diffusion, 2022.}
+\end{thebibliography}
+
+\end{document}
+

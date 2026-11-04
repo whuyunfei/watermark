@@ -1,0 +1,766 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{enumitem}
+\usepackage{microtype}
+
+\graphicspath{{../figures/}}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{construction}[theorem]{Construction}
+
+\newcommand{\Enc}{\mathsf{Encode}}
+\newcommand{\Det}{\mathsf{Detect}}
+\newcommand{\KeyGen}{\mathsf{KeyGen}}
+\newcommand{\Embed}{\mathsf{Embed}}
+\newcommand{\Extract}{\mathsf{Extract}}
+\newcommand{\negl}{\mathsf{negl}}
+\newcommand{\wt}{\mathrm{wt}}
+\newcommand{\Bern}{\mathrm{Bern}}
+\newcommand{\BSC}{\mathrm{BSC}}
+\newcommand{\PRCC}{\ensuremath{\mathrm{PRCC}}}
+\newcommand{\sk}{\mathit{sk}}
+
+\title{Pseudorandom Cyclic Codes:\\
+Syntax, a Block-Circulant Candidate, and a Lattice Watermark}
+\author{
+Anonymous / Working Draft\\
+\texttt{PRCC project}
+}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study zero-bit \emph{Pseudorandom Cyclic Codes} (\PRCC{}): a keyed coding syntax
+for the simultaneous ring-shift \(T_k\), with desired completeness, uniform-string
+soundness, single-sample pseudorandomness, and \(\BSC_p\) robustness.
+A block-circulant candidate encodes the coset \(Hc=\mathbf{1}\) and detects by
+syndrome weight.
+The identity \(HT_k=R_kH\) is the standard quasi-cyclic equivariance; it makes
+integer sector rolls free at the detector.
+We then instantiate that candidate as a post-hoc image watermark: two-coset
+quantization index modulation (QIM) on hard radial mean-difference coefficients,
+plus a search over two content centers and \(L\) residual angles.
+That instance is an application, not a proof that the candidate meets every
+\PRCC{} axiom.
+
+At a tested operating point (COCO images bilinearly resized to \(256\times256\),
+median PSNR \(\approx 38\,\mathrm{dB}\), encode noise \(\eta=0\), two centers
+\(\times L=8\)), five keys on a hold-out split meet TPR \(\ge 90\%\) under random
+rotation with JPEG quality~70, with Clopper--Pearson 95\% FPR upper bounds
+\(\le 1\%\) (Q70-calibrated thresholds).
+Relative to a matched PRC detector that ORs over integer shifts, the construction
+cuts code-detection calls by \(64\times\) (16 vs.\ 1024 per image).
+Against a keyed \(\pm 1\) template with FFT cyclic correlation on the same carrier and
+geometry, detect-call counts match (16 vs.\ 16) and the correlator attains higher TPR;
+the measured structural win is therefore against \(m\)-fold shift-OR code search, not
+against FFT-amortized template correlation.
+Block-circulant equivariance and QIM are tools.
+The coding contribution is the \PRCC{} syntax together with a candidate whose
+integer-shift closure is proved and whose pseudorandomness is not.
+The watermark measurements are application metrics at \(\eta=0\); that operating
+point has a public parity constraint and is not a pseudorandom \PRCC{} realization.
+We do not claim image-level undetectability.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Rotation remains awkward for zero-bit image watermarks.
+Classical geometric methods often map rotation to a cyclic shift of an extracted
+1-D descriptor and then search or correlate~\cite{lin2001rst}.
+Fourier-ring schemes for diffusion images similarly rely on angular
+structure~\cite{wen2023treering,ci2024ringid}, while cryptographic pseudorandom
+codes (PRCs)~\cite{christ2024prc,gunn2024undetectable} give strong substitution
+guarantees but treat cyclic shift as an external OR over \(m\) detector calls.
+
+The paper is organized in three layers.
+First we fix the \PRCC{} syntax and the four target properties (completeness,
+uniform-string soundness, pseudorandomness, BSC robustness).
+Second we give a block-circulant candidate and state, property by property, what
+is proved and what is not.
+Third we embed that candidate in a spatial lattice watermark and report distortion,
+rotation+JPEG detection, and detection-call counts.
+The algebraic identity \(HT_k=R_kH\) is a standard quasi-cyclic
+fact~\cite{townsend1967cyclic,fossorier2004qc}; two-coset embedding is
+QIM~\cite{chen2001qim}.
+Refusing to claim that the \(\eta=0\) instance is pseudorandom does not remove the
+definition: that instance is a candidate boundary, not a substitute for the syntax.
+
+\paragraph{Contributions.}
+\begin{itemize}[leftmargin=*]
+  \item A zero-bit \PRCC{} definition under simultaneous ring shifts \(T_k\),
+        including the ring-OR PRC baseline that any useful construction should beat
+        on detection cost or end-to-end metrics.
+  \item A block-circulant candidate (\(Hc=\mathbf{1}\), syndrome detection) with an
+        equivariance proof, a uniform-string soundness bound under full rank, and an
+        explicit gap: \(\eta=0\) fails pseudorandomness by a public parity constraint.
+  \item An image instantiation at \(\eta=0\), \(w=1\): hard radial mean-difference
+        QIM, two-center residual search, and COCO measurements (median PSNR
+        \(\approx 38\,\mathrm{dB}\), five-key hold-out confirmation, \(64\times\)
+        fewer code calls than shift-OR PRC, and a stronger template+FFT correlator
+        on the same geometry).
+\end{itemize}
+
+\paragraph{Non-claims.}
+Image TPR/FPR numbers are application metrics.
+They are not proofs of uniform-string soundness, BSC robustness, or
+pseudorandomness.
+A failed full-circulant square matrix is deferred to~\Cref{app:failed}.
+
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Classical geometric watermarking.}
+Lin et~al.~\cite{lin2001rst} build an RST-resilient watermark from a
+Fourier--Mellin-style 1-D projection: image rotation induces a cyclic shift of the
+extracted signal, detected by search and correlation, with reported false positives,
+rotation, and JPEG tests.
+Our setting is likewise post-hoc zero-bit watermarking under rotation and JPEG, so
+that line of work is the closest classical reference.
+We differ in payload geometry (concentric spatial annuli rather than log-polar
+Fourier magnitudes) and in replacing template correlation by a shift-invariant
+syndrome test at the coding layer.
+
+\paragraph{QIM and quasi-cyclic codes.}
+Chen and Wornell~\cite{chen2001qim} introduce quantization index modulation; our
+carrier uses a standard two-coset dithered quantizer on scalar coefficients.
+Quasi-cyclic / block-circulant parity-check structure is classical in coding
+theory~\cite{townsend1967cyclic,fossorier2004qc,misoczki2013mdpc}.
+We use \(HT_k=R_kH\) as an off-the-shelf equivariance tool, not as a new code-family
+claim.
+
+\paragraph{PRCs and generative watermarks.}
+Christ and Gunn~\cite{christ2024prc} define PRCs; variants
+follow~\cite{alrabiah2025ideal,christ2025permuted,golowich2024edit}.
+Image PRC watermarks embed in latents~\cite{gunn2024undetectable}.
+A ring-OR PRC baseline answers how much the coding layer saves versus searching
+integer shifts; it does not by itself locate the method among classical geometric
+watermarks.
+
+\paragraph{Diffusion watermarks and rotation.}
+Tree-Ring~\cite{wen2023treering} and RingID~\cite{ci2024ringid} analyze Fourier-ring
+embedding in generative pipelines.
+Fractional shifts and cropping can destroy intended robustness~\cite{ci2024ringid}.
+Our experiments are post-hoc on natural images with a spatial carrier, not
+claims about diffusion inversion.
+
+\section{Preliminaries}
+\label{sec:prelim}
+
+Fix \(b\ge 2\) concentric rings and \(m\) angular samples per ring.
+Codewords live in \(\{0,1\}^n\) with \(n=bm\).
+The length-\(m\) cyclic shift is \((R_k x)_i=x_{i-k\bmod m}\).
+The simultaneous ring action is
+\[
+T_k=\operatorname{diag}(R_k,\ldots,R_k)\in\{0,1\}^{n\times n},\qquad k\in\mathbb{Z}/m\mathbb{Z}.
+\]
+Write \(\wt(\cdot)\) for Hamming weight.
+\(\BSC_p\) flips each bit independently with probability \(p\).
+One angular bin has width \(\Delta=360^\circ/m\).
+An integer sector roll corresponds to some \(T_k\); a residual angle
+\(\delta\in[0,\Delta)\) accounts for misalignment within a bin.
+Worst-case \(p\)-bounded adversarial flips are deferred.
+
+\section{PRCC: Syntax and Desired Properties}
+\label{sec:prcc}
+
+\begin{definition}[Zero-bit \PRCC{} under \(T_k\)]
+\label{def:prcc}
+A triple \((\KeyGen,\Enc,\Det)\) is a \emph{zero-bit Pseudorandom Cyclic Code} if
+there exists \(p\in(0,1/2)\) such that the following hold.
+\(\KeyGen(1^\lambda)\) outputs a secret key \(\sk\).
+\(\Enc(\sk)\) outputs a codeword in \(\{0,1\}^n\).
+\(\Det(\sk,y)\) outputs a bit.
+
+\paragraph{(C) Completeness / detect-sense \(T_k\)-closure.}
+For all \(k\in\mathbb{Z}/m\mathbb{Z}\),
+\[
+\Pr\bigl[\Det(\sk, T_k(\Enc(\sk)))=1\bigr]\ge 1-\negl(\lambda).
+\]
+
+\paragraph{(S) Soundness against uniform strings.}
+\[
+\Pr\bigl[\Det(\sk,U)=1\bigr]\le\negl(\lambda)
+\quad\text{for }U\leftarrow\{0,1\}^n.
+\]
+This does not imply a low false-positive rate on bits extracted from unmarked
+images, which need not be uniform.
+A homogeneous syndrome test accepts the all-zero string.
+
+\paragraph{(P) Pseudorandomness (single-sample).}
+For every PPT adversary \(\mathcal{A}\) that does not receive \(\sk\),
+\[
+\bigl|\Pr[\mathcal{A}(\Enc(\sk))=1]-\Pr[\mathcal{A}(U)=1]\bigr|\le\negl(\lambda).
+\]
+Multi-sample pseudorandomness under one \(\sk\) is a comparison target, not part of
+this definition~\cite{christ2024prc}.
+Bit pseudorandomness does not imply image-level undetectability.
+
+\paragraph{(R) Robustness under \(\BSC_p\).}
+\[
+\forall k\in\mathbb{Z}/m\mathbb{Z}:\quad
+\Pr\bigl[\Det(\sk,\BSC_p(T_k(\Enc(\sk))))=1\bigr]\ge 1-\negl(\lambda).
+\]
+\end{definition}
+
+\begin{remark}[Trivial baseline]
+\label{rem:ringor}
+Given any zero-bit PRC detector \(D_{\mathrm{PRC}}\) for length \(n=bm\), define
+\[
+D_{\mathrm{ring}}(y)=\bigvee_{k=0}^{m-1} D_{\mathrm{PRC}}(T_k y).
+\]
+The encoder is unchanged, so (P) is inherited.
+(C) holds for exact \(T_k\).
+Under \(\BSC_p\), (R) inherits up to the original completeness gap.
+If the base false-positive rate on uniform strings is \(\varepsilon\), the ring-OR
+rate is at most \(m\varepsilon\).
+A useful \PRCC{} must beat this baseline on detection cost or on end-to-end
+watermark metrics under matched false-positive rate and attack strength.
+\end{remark}
+
+\section{Candidate: Block-Circulant Syndromes}
+\label{sec:method}
+
+\subsection{Key generation and coset encoding}
+\label{sec:code}
+
+\begin{construction}[Block-circulant zero-bit code]
+\label{cons:block}
+\textbf{Parameters:} rings \(b\), angular length \(m\), common block row weight \(w\),
+encode noise \(\eta\), threshold \(\tau\).
+
+\paragraph{$\KeyGen$.}
+For \(j=1,\ldots,b\), sample a generator \(h^{(j)}\in\{0,1\}^m\) of weight \(w\).
+Let \(A_j\) be the \(m\times m\) circulant with first row \(h^{(j)}\), and set
+\(H=[A_1\mid\cdots\mid A_b]\in\{0,1\}^{m\times n}\).
+Reject and resample until \(A_b\) is invertible over the circulant algebra
+(equivalently \(\gcd(h^{(b)}(X),X^m-1)=1\)).
+Output \(\sk=(H,\tau,\eta)\).
+
+\paragraph{$\Enc$.}
+Sample free blocks \(c^{(1)},\ldots,c^{(b-1)}\leftarrow\{0,1\}^m\) uniformly.
+Solve \(A_b c^{(b)}=\mathbf{1}+\sum_{j<b}A_j c^{(j)}\) for \(c^{(b)}\).
+Output \(c=(c^{(1)}\|\cdots\|c^{(b)})\oplus e\) with \(e\leftarrow\Bern(\eta)^n\).
+At the performance operating point we take \(\eta=0\).
+
+\paragraph{Syndrome detection.}
+Define \(s(y)=\wt(Hy+\mathbf{1})\).
+The bitstring detector accepts iff \(s(y)\le\tau\).
+The near-constant block rule of~\Cref{sec:const} is part of the image detector
+only; it is not part of this bitstring syntax.
+\end{construction}
+
+\begin{proposition}[Integer-shift equivariance]
+\label{prop:inv}
+Each circulant block satisfies \(A_j R_k=R_k A_j\), hence \(HT_k=R_kH\).
+If \(Hc=\mathbf{1}\) then \(H(T_kc)=R_k\mathbf{1}=\mathbf{1}\), so
+\(s(T_kc)=0\).
+\end{proposition}
+
+\begin{proposition}[Kernel dimension]
+\label{prop:ker}
+Always \(\dim\ker H\ge (b-1)m\).
+If \(A_b\) is invertible then \(\mathrm{rank}(H)=m\) and \(\dim\ker H=(b-1)m\).
+\end{proposition}
+
+\begin{proposition}[Uniform-string soundness under full rank]
+\label{prop:S}
+If \(\mathrm{rank}(H)=m\) and \(U\leftarrow\{0,1\}^n\), then \(HU\) is uniform on
+\(\mathbb{F}_2^m\).
+Thus \(\wt(HU+\mathbf{1})\sim\mathrm{Bin}(m,1/2)\) and
+\[
+\Pr[\Det(\sk,U)=1]=\Pr[\mathrm{Bin}(m,1/2)\le\tau].
+\]
+Choosing \(\tau\ll m/2\) makes this probability exponentially small in \(m\).
+This is property~(S) for the bitstring detector.
+It is not a statement about unmarked images.
+\end{proposition}
+
+\paragraph{The \(w=1\) operating point.}
+When \(w=1\), each generator is a standard basis vector, so every \(A_j\) is a
+circulant permutation matrix (a pure cyclic shift).
+Writing ring blocks \(y^{(1)},\ldots,y^{(b)}\in\{0,1\}^m\) and secret offsets
+\(t_j\) for the nonzero of \(h^{(j)}\),
+\[
+(Hy)_i=\bigoplus_{j=1}^{b} y^{(j)}_{i-t_j\bmod m}.
+\]
+Thus \(s(y)\) counts, after aligning each ring by its secret shift, how many
+angular positions violate the cross-ring parity that targets the all-ones syndrome.
+Detection is a shift-aligned parity-check count, not iterative decoding.
+The weight \(w=1\) is the application operating point used below; it is not part of
+\Cref{def:prcc}.
+
+\subsection{What the candidate establishes}
+\label{sec:status}
+
+\paragraph{Established.}
+\Cref{prop:inv} gives \(HT_k=R_kH\).
+If \(\eta=0\) and \(Hc=\mathbf{1}\), then \(s(T_kc)=0\), so completeness~(C) holds
+with probability \(1\) for exact integer shifts of noiseless codewords.
+\Cref{prop:S} gives the uniform-string bound for~(S) whenever \(A_b\) is invertible
+and \(\tau\) is set below the binomial tail.
+
+\paragraph{Not established.}
+When \(\eta=0\), summing coordinates yields
+\(\sum_j h^{(j)}(1)\,c^{(j)}(1)=m\bmod 2\).
+Odd-weight generators, including every \(w=1\) generator, have \(h^{(j)}(1)=1\), so
+the block parities of a noiseless codeword are constrained, while a uniform string
+meets the same relation with probability \(1/2\).
+The \(\eta=0\) candidate therefore fails~(P) information-theoretically.
+The image experiments do not prove~(R) at a \(\negl(\lambda)\) level, and a low
+false-positive rate on extracted image bits does not replace~(S).
+Pixel rotation is not proved equal to \(T_k\) plus light noise; that correspondence
+is measured only in the application below.
+
+\section{Application: Spatial Lattice Watermark}
+\label{sec:app}
+
+The sections below instantiate~\Cref{cons:block} on images.
+They measure embedding distortion, detection rate under rotation and JPEG, and
+detection-call counts against a shift-OR PRC and a template correlator.
+Those are application metrics.
+They are not proofs of~(C), (S), (P), or~(R).
+A stronger correlation baseline limits the competitiveness of this watermark
+instance; it is not a reason to drop the \PRCC{} syntax.
+Images are COCO photographs bilinearly resized to \(256\times256\) RGB.
+Rotation attacks use pad-and-crop, optionally followed by JPEG.
+The reported operating point uses \(\eta=0\).
+
+\subsection{Near-constant block rejection}
+\label{sec:const}
+
+If every length-\(m\) block of \(y\) has mean bit fraction in
+\([0,\rho]\cup[1-\rho,1]\) with \(\rho=0.05\), the detector returns ``absent''
+before comparing \(s(y)\) to \(\tau\).
+The rule is \(T_k\)-invariant and enabled in all reported image experiments.
+Reproducing reported FPR/TPR requires it.
+
+\subsection{Lattice carrier (two-coset QIM)}
+\label{sec:lattice}
+
+\paragraph{Coefficients.}
+Each annulus \([r_0,r_1]\) is split at the midpoint \(r_{\mathrm{mid}}=(r_0+r_1)/2\)
+into hard inner and outer radial bands (no soft radial weights).
+Angular sector \(t\) keeps only pixels whose fractional sector coordinate lies in
+\([\tfrac{1}{2}g,\,1-\tfrac{1}{2}g)\) with angular guard \(g=0.15\), excluding
+sector boundaries.
+Let \(\mu^{\mathrm{out}}_{j,t}\) and \(\mu^{\mathrm{in}}_{j,t}\) be the mean gray
+values (unit scale) in the outer and inner bands of ring \(j\), sector \(t\).
+The scalar coefficient is the mean difference
+\[
+v_{j,t}=\mu^{\mathrm{out}}_{j,t}-\mu^{\mathrm{in}}_{j,t}
+\]
+when both bands are nonempty, else \(0\).
+
+\paragraph{Two-coset QIM~\cite{chen2001qim}.}
+With lattice spacing \(s>0\), bit \(b\in\{0,1\}\) selects the coset
+\(\{(2k+b)\,s/2:k\in\mathbb{Z}\}\).
+Embedding replaces \(v\) by the nearest point \(\widehat{v}\) of that coset:
+\[
+\widehat{v}
+=\operatorname{round}\!\bigl((v-b\cdot s/2)/s\bigr)\,s+b\cdot s/2.
+\]
+Let \(\delta=\widehat{v}-v\).
+Pixels in the inner (resp.\ outer) band of sector \(t\) receive additive gray
+perturbations
+\[
+d^{\mathrm{in}}_t=-\frac{n^{\mathrm{out}}_t}{n^{\mathrm{in}}_t+n^{\mathrm{out}}_t}\,\delta_t,
+\qquad
+d^{\mathrm{out}}_t=\frac{n^{\mathrm{in}}_t}{n^{\mathrm{in}}_t+n^{\mathrm{out}}_t}\,\delta_t,
+\]
+where \(n^{\mathrm{in/out}}_t\) are pixel counts; this realizes the target change in
+\(v\) with minimum squared pixel change among constant-per-band pushes.
+RGB images apply the same gray residual to each channel, then clip to the legal
+range.
+Extraction returns the closer coset as a hard bit.
+
+The locked operating point uses \(m=64\), \(b=4\), \(w=1\), \(\eta=0\), and
+\(s\approx 0.1416\) (highest median-PSNR setting that passed the gates
+of~\Cref{sec:protocol} on a development key;~\Cref{tab:psnr-scan}).
+
+\subsection{Detection: centers, residual angles, and decision}
+\label{sec:detect}
+
+\begin{algorithm}[t]
+\caption{Blind detection (baseline~C)}
+\label{alg:detect}
+\begin{algorithmic}[1]
+\Require image \(I\), key \(\sk\), layout, lattice step \(s\), centers
+\(\mathcal{C}=\{(127.5,127.5),(128,128)\}\), residual grid size \(L\)
+\State \(\Delta\leftarrow 360^\circ/m\); \(\mathcal{D}\leftarrow\{i\Delta/L:i=0,\ldots,L-1\}\)
+\State \(s^\star\leftarrow +\infty\)
+\For{each center \(c\in\mathcal{C}\)}
+  \For{each \(\delta\in\mathcal{D}\)}
+    \State \(y\leftarrow\Extract(I;\,c,\delta,s)\) \Comment{hard bits, length \(n\)}
+    \If{\(y\) fails near-constant reject}
+      \State \textbf{continue}
+    \EndIf
+    \State \(s^\star\leftarrow\min(s^\star,\,s(y))\)
+  \EndFor
+\EndFor
+\State \Return \(\mathbf{1}[s^\star\le\tau]\)
+\end{algorithmic}
+\end{algorithm}
+
+Pad-and-crop rotation on a \(256\times256\) canvas expands to an even or odd side
+length depending on angle.
+Even expansion preserves content center \((127.5,127.5)\); odd expansion moves it to
+\((128,128)\).
+Searching both centers removes the half-pixel residual-angle valley of
+default-center extraction~(\Cref{tab:center-sync}).
+This is not general translation synchronization.
+
+With \(L=8\), each image incurs \(2\times L=16\) extractions and 16 syndrome
+evaluations; the integer sector index never appears in the search.
+
+\subsection{Threshold calibration}
+\label{sec:calib}
+
+Every key freezes a single threshold before test evaluation.
+
+\paragraph{Q70-only rule.}
+Calibrate on unmarked scores and on random-rotation+JPEG~70 attacked scores
+(empirical FPR strictly below \(0.5\%\) on both, tune-set TPR \(\ge 90\%\), largest
+feasible integer \(\tau\) for PRCC).
+This is the rule used by the hold-out confirmation table, the PRC comparison, and
+the template+correlation comparison.
+
+\paragraph{Mixed-Q rule (formal multi-quality protocol).}
+On calibration, aggregate attacked negatives \emph{per image} by the minimum score
+over \(Q\in\{50,60,70,80,90\}\) (worst case), and tune positives by the maximum
+score over \(Q\).
+Freeze one \(\tau\) and evaluate every \(Q\) without retuning.
+Implementation now always runs this arm; historical \texttt{jpeg\_unified.json}
+still records a migration path that accepted Q70-only when it already covered the
+grid~(\Cref{sec:jpeg}).
+
+\input{wyf1.tex}
+\input{wyf2.tex}
+
+\section{Experimental Protocol}
+\label{sec:protocol}
+
+The gates below are application criteria for the lattice watermark.
+Passing them does not establish~\Cref{def:prcc}.
+
+\paragraph{Data.}
+COCO images are bilinearly resized to \(256\times256\).
+Development splits (\texttt{tune}/\texttt{calib}/\texttt{test\_*}) are disjoint from
+the hold-out confirmation split from COCO \texttt{train2017}
+(\texttt{confirm\_splits.json}).
+
+\paragraph{Attack.}
+Unless noted: random rotation via pad-and-crop, then JPEG quality~70.
+Residual-angle curves report mid-bin \(\delta\) points.
+Additional translation after rotation+JPEG appears only in the boundary study.
+
+\paragraph{Gates (test).}
+Pass if (i)~random-\(\theta\) TPR \(\ge 90\%\),
+(ii)~minimum mid-bin TPR \(\ge 90\%\), and
+(iii)~Clopper--Pearson 95\% FPR upper bounds on unmarked and attacked negatives are
+both \(\le 1\%\).
+Calibration uses the stricter \(0.5\%\) empirical targets of~\Cref{sec:calib}.
+
+\paragraph{Locked detector~C.}
+\(m=64\), \(b=4\), \(w=1\), \(\eta=0\), \(L=8\), centers
+\(\{(127.5,127.5),(128,128)\}\), lattice step \(s\approx 0.1416\) for the main
+tables.
+Each result table states its calibration rule and cites a JSON artifact under
+\texttt{figures/}.
+
+\section{Results}
+\label{sec:experiments}
+
+Numbers in this section are application metrics for the \(\eta=0\), \(w=1\)
+watermark: distortion, rotation+JPEG true-positive rate, image false-positive upper
+bounds, and detection calls.
+They do not substitute for uniform-string soundness or pseudorandomness.
+
+\subsection{Operating point and hold-out confirmation}
+\label{sec:main}
+
+\Cref{tab:psnr-scan} summarizes a distortion scan on a single development key
+(\texttt{figures/psnr\_scan.json}; \textbf{calibration: Q70-only}).
+Median PSNR \(\approx 38\,\mathrm{dB}\) (\(s\approx 0.1416\)) is the highest tested
+setting that still passed all gates; \(39\,\mathrm{dB}\) and \(40\,\mathrm{dB}\) fail on
+mid-bin TPR.
+
+\begin{table}[t]
+\centering
+\caption{Distortion scan on detector~C (one development key; Q70-only calibration).
+Source: \texttt{figures/psnr\_scan.json}.}
+\label{tab:psnr-scan}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Target PSNR & Step \(s\) & Median PSNR & Mid-bin gate & Pass \\
+\midrule
+35 & 0.199 & 34.93 & pass & yes \\
+36 & 0.178 & 35.93 & pass & yes \\
+38 & 0.142 & 37.96 & pass & \textbf{yes} \\
+39 & 0.128 & 38.84 & fail (\(0.888\)) & no \\
+40 & 0.112 & 39.99 & fail (\(0.800\)) & no \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\Cref{tab:confirm} is the primary confirmation table: five keys, independent
+per-key \textbf{Q70-only} calibration, confirmation-split images, attack $=$ random
+rotation + JPEG~70 (\texttt{figures/confirm\_holdout.json}).
+All five keys pass.
+Per key: \(\approx 600\) marked positives for random-\(\theta\) TPR,
+\(n=3000\) unmarked and \(n=3000\) attacked negatives for FPR.
+
+\begin{table}[t]
+\centering
+\caption{Hold-out confirmation at \(\approx 38\,\mathrm{dB}\) (five keys; Q70-only
+calibration).
+FPR columns: Clopper--Pearson 95\% upper bounds.
+Source: \texttt{figures/confirm\_holdout.json}.}
+\label{tab:confirm}
+\begin{tabular}{@{}rcccccc@{}}
+\toprule
+Key & \(\tau\) & PSNR & TPR & Mid min & FPR\textsubscript{none} & FPR\textsubscript{att} \\
+\midrule
+0 & 16 & 37.94 & 0.955 & 0.963 & 0.0026 & 0.0010 \\
+1 & 17 & 37.96 & 0.965 & 0.975 & 0.0039 & 0.0044 \\
+2 & 17 & 37.96 & 0.968 & 0.963 & 0.0030 & 0.0026 \\
+3 & 17 & 37.97 & 0.967 & 0.950 & 0.0021 & 0.0026 \\
+4 & 17 & 37.96 & 0.968 & 0.963 & 0.0030 & 0.0026 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Center-sync ablation}
+\label{sec:center}
+
+\Cref{tab:center-sync} isolates the half-pixel center effect
+(\texttt{figures/center\_sync.json}; development step \(\approx 0.197\), three keys;
+Q70-only).
+Keeping the canvas center fixed (arm~A) or compensating with the true content center
+(arm~B) removes the mid-bin valley.
+Blind search over the two points
+\(\{(127.5,127.5),(128,128)\}\) (arm~C) matches that recovery at \(2L=16\)
+candidates.
+Default-center extraction under pad-and-crop (arm~D) drops mid-bin TPR to about
+\(0.82\).
+Denser residual grids alone (\(L=32\)) do not close the valley
+(\texttt{figures/dense\_search.json}).
+
+\begin{table}[t]
+\centering
+\caption{Center-sync ablation (three keys, \(L=8\)).
+Entries are minima across keys.
+Source: \texttt{figures/center\_sync.json}.}
+\label{tab:center-sync}
+\begin{tabular}{@{}llcc@{}}
+\toprule
+Arm & Extract centers & Mid-bin TPR & Random-\(\theta\) TPR \\
+\midrule
+A & default (keep-center rot.) & 0.98 & 0.98 \\
+B & oracle true center & 0.98 & 0.975 \\
+C & \(\{(127.5,127.5),(128,128)\}\) & 0.98 & 0.975 \\
+D & default under pad+crop & 0.82 & 0.915 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Unified JPEG threshold}
+\label{sec:jpeg}
+
+Per-quality recalibration shows operating points exist for each
+\(Q\in\{50,\ldots,90\}\) (\texttt{figures/attack\_boundary.json}; per-\(Q\)
+thresholds).
+
+\paragraph{Historical unified-threshold artifact.}
+\texttt{figures/jpeg\_unified.json} freezes one \(\tau\) per key and retests all
+\(Q\).
+In that recorded run, keys~0 and~1 used a Q70-calibrated threshold that already
+covered \(Q\in\{50,\ldots,90\}\); key~2 failed Q70-only transfer at \(Q=60\) and was
+recalibrated with mixed-Q, after which all three keys passed.
+The repository protocol now \emph{always} executes mixed-Q for every key and retains
+Q70-only as a migration arm; the JSON above has not been regenerated under that
+always-mixed-Q regime.
+We therefore treat the file as evidence that a single frozen \(\tau\) can cover the
+tested quality grid (with mixed-Q needed for at least one key), not as a fresh
+always-mixed-Q campaign.
+
+\subsection{Fair comparison to PRC}
+\label{sec:prc}
+
+We match lattice carrier, two-center residual geometry, distortion, and images, and
+replace only the code layer: block-circulant PRCC versus a sparse PRC detector that
+ORs over \(m\) integer shifts at each of the \(2L\) geometry candidates
+(\(2L\cdot m=1024\) code detections per image).
+Both sides use \textbf{Q70-only} calibration after full search; PRC takes the lowest
+legal score meeting the \(0.5\%\) caps; PRC detection is CSR-vectorized
+(\texttt{figures/prc\_fair\_C.json}).
+
+\begin{table}[t]
+\centering
+\caption{PRCC vs.\ PRC on matched carrier~C (three paired keys; means; Q70-only
+calibration).
+Source: \texttt{figures/prc\_fair\_C.json}.}
+\label{tab:prc}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Metric & PRCC & PRC & Ratio \\
+\midrule
+Code detections / image & 16 & 1024 & \(64\times\) \\
+Mean code time (s) & 2.3 & 112.9 & \(\approx 50\times\) \\
+Mean total time (s) & 102.7 & 215.5 & \(\approx 2.1\times\) \\
+Mean TPR & 0.972 & 0.984 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The \(64\times\) call reduction is structural.
+After vectorization, code-time speedup (\(\approx 50\times\)) tracks call count.
+Total wall-clock speedup is only \(\approx 2.1\times\) because radial extraction
+dominates.
+
+\paragraph{False-positive footnote.}
+PRCC key~2 records attacked negatives \(10/1500\) (95\% upper bound
+\(\approx 1.13\%\)); we do not claim all three comparison keys meet a strict
+\(1\%\) upper-bound budget.
+Efficiency ratios are unaffected.
+
+\subsection{Template + cyclic correlation baseline}
+\label{sec:corr}
+
+To place the method among classical geometric detectors, we keep the same carrier,
+PSNR step, two-center \(\times L\) geometry, and images, and replace the code by a
+secret \(\pm 1\) template with simultaneous-ring circular correlation (real FFT per
+ring, sum lags; max over geometry).
+Thresholds are calibrated after the full search (higher-is-better; lowest legal
+score under the same \(0.5\%\) caps; Q70-only), matching the spirit of
+search-and-correlate detectors~\cite{lin2001rst}
+(\texttt{figures/corr\_fair\_C.json}).
+
+\begin{table}[t]
+\centering
+\caption{PRCC vs.\ template+FFT correlation on matched carrier~C (three keys;
+Q70-only; means).
+A CORR detect call is one FFT cyclic correlation covering \(m\) lags.
+Source: \texttt{figures/corr\_fair\_C.json}.}
+\label{tab:corr}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Metric & PRCC & Template+corr \\
+\midrule
+Detect calls / image & 16 & 16 \\
+Mean TPR & 0.970 & 1.000 \\
+Mean FPR\textsubscript{att} upper & 0.0047 & 0.0051 \\
+Mean code time (s) & 2.1 & 2.1 \\
+Mean total time (s) & 105.4 & 103.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+With FFT amortization, both detectors issue 16 score evaluations per image and have
+essentially identical wall-clock cost.
+On this matched carrier the template correlator achieves higher TPR (1.000 vs.\
+0.970) at comparable FPR upper bounds.
+Thus~\Cref{tab:prc} shows a structural call reduction against an \(m\)-fold PRC OR,
+whereas~\Cref{tab:corr} shows that once integer lags are handled by FFT correlation,
+the syndrome test does not improve detection rate or runtime under the present
+protocol.
+The distinctive measured benefit of the block-circulant layer remains the removal of
+an explicit integer-sector loop relative to shift-OR code detectors---not a blanket
+advantage over classical template correlation on the same geometry.
+
+\subsection{Translation boundary}
+\label{sec:shift}
+
+After rotation+JPEG~70 we add a pixel translation
+(\texttt{figures/attack\_boundary.json}; per-condition calibration).
+Offsets \(\lvert\Delta\rvert\le 0.25\)~px often still admit a passing threshold; some
+axis/key combinations slightly exceed the \(1\%\) FPR upper bound.
+Offsets \(\lvert\Delta\rvert\ge 0.5\)~px yield no usable threshold under the locked
+two-center detector.
+
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{What is established.}
+At the coding layer, the block-circulant candidate meets noiseless integer-shift
+completeness and, under full rank, the uniform-string tail in~\Cref{prop:S}.
+At the application layer, the assembled detector---parity counts at \(w=1\), hard
+radial QIM, and two-center residual search---meets the TPR/FPR/PSNR gates at
+\(\approx 38\,\mathrm{dB}\) on five Q70-calibrated confirmation keys, and reduces
+code-detection calls by \(64\times\) versus a shift-OR PRC baseline on the same
+carrier.
+A matched template+FFT correlator uses the same 16 geometry scores per image and
+achieves higher TPR, so this watermark instance is not competitive with classical
+correlation on raw detection rate.
+That limit does not remove the \PRCC{} definition or the candidate's equivariance.
+
+\paragraph{What is not established.}
+The reported operating point uses \(\eta=0\) and therefore fails
+pseudorandomness~(P) by the public parity constraint of~\Cref{sec:status}.
+Image false-positive rates are not uniform-string soundness~(S), and the
+experiments do not prove BSC robustness~(R).
+Image-level undetectability is not claimed.
+The mixed-Q formal protocol is implemented, but the archived unified-JPEG JSON still
+reflects the older migration path; a full always-mixed-Q regenerate remains optional
+bookkeeping.
+General translation, scale, and generative inversion pipelines remain open.
+
+\paragraph{Open directions.}
+(1)~Noise \(\eta>0\) with a validated hardness story.
+(2)~Translation-tolerant sync after oracle-center controls.
+(3)~Richer classical baselines (e.g., closer reproductions of~\cite{lin2001rst}
+log-polar projections) if claiming broad watermark competitiveness beyond the matched
+carrier.
+(4)~Distribution-preserving embedding in a diffusion pipeline~\cite{gunn2024undetectable}.
+
+\section*{Acknowledgments}
+Working draft. Numbers are traced to JSON artifacts under \texttt{figures/}.
+Reference implementation: \texttt{experiments/src/}.
+
+\appendix
+\section{Failed full-circulant square matrix}
+\label{app:failed}
+
+\begin{construction}[Retracted full-circulant candidate]
+Sample \(h\in\{0,1\}^n\) of weight \(w\) and let \(H\) be the \(n\times n\) circulant
+with rows \(R_0(h),\ldots,R_{n-1}(h)\).
+Encoding was described as sampling \(\ker H\) plus \(\Bern(\eta)\).
+\end{construction}
+
+\begin{proposition}[Trivial kernel at default parameters]
+Let \(n=2^\ell\). Over \(\mathbb{F}_2\), \(X^n-1=(X+1)^n\).
+If \(w\) is odd then \(h(1)=1\), so \(\gcd(h(X),X^n-1)=1\) and the circulant \(H\) is
+invertible.
+Hence \(\ker H=\{0\}\).
+For \(n=256\), \(w=7\), encoding collapses to noise alone; small \(\eta\) distinguishes
+codewords from uniform without the key.
+\end{proposition}
+
+\section{Early channel attempts}
+\label{app:channel}
+
+Painting i.i.d.\ signs on discrete FFT rings left half-bin grid-aligned bit-error
+rates near \(1/2\) under pad-and-crop rotation.
+Spatial annulus sectors with integer-only \(T_k\) rolls still failed at half-bin
+residuals---motivating keyed residual search.
+Margin (sign-push) carriers were less stable under JPEG than two-coset QIM.
+Phase notes are archived under \texttt{notes/}.
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}

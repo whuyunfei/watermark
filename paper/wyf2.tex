@@ -1,0 +1,224 @@
+\section{Application: Circ-Harmonic Ring NTRU (B3)}
+\label{sec:app-b3}
+
+The section below instantiates a \emph{zero-bit}, keyed presence watermark on
+Stable Diffusion initial noise (codec \texttt{ring\_ntru}, catalog id~\texttt{sd\_b3}).
+Generation draws i.i.d.\ Gaussian $z_0\in\mathbb{R}^{4\times64\times64}$, embeds a
+keyed sparse angular-harmonic pattern on a \emph{spatial} payload annulus (unique
+ring pixels, angle-sorted), optionally repairs off-payload signs for pseudorandomness,
+and runs the full denoising pipeline.
+Detection performs one VAE encode and scores summed angular harmonic energy
+$|c_m|^2$ on the same rings, with log-spectrum whitening and on-support vs.\
+control contrast.
+There is no rotation search, deskew, sector index, or LDPC syndrome at detect time
+(the PRC key seeds trapdoor permutations only).
+Reported metrics (F1, small-angle rotation under expand-and-resize, FPR on unmarked
+SD images, visual quality) are application numbers on this instance, not proofs
+of~(C), (S), (P), or~(R).
+The carrier carries no user message bits; the decision is approximately one bit
+per image (present vs.\ absent under the keyed template).
+
+\subsection{Key material and NTRU-style support}
+\label{sec:b3-key}
+
+\paragraph{Secret key.}
+As in~\Cref{sec:anyangle-key}, the stored PRC/LDPC key is used symmetrically;
+B3 reads only $\mathrm{PEM}(\sk)$ for deterministic objects (no LDPC
+encode/decode on this path).
+
+\paragraph{Keyed PRNG.}
+Define $\mathrm{RNG}(T)$ from $\mathrm{SHA256}(T)$ as in~\Cref{sec:anyangle-key}.
+
+\paragraph{Harmonic orders.}
+Let $M=24$ index angular orders $m\in\{1,\ldots,M\}$.
+The NTRU trapdoor pool uses zero-based indices
+\[
+\mathcal{P}_{\mathrm N}=\{m-1:\ m\in\{M_{\mathrm{ntru}},\ldots,M\}\},
+\qquad M_{\mathrm{ntru}}=10,
+\]
+so $|\mathcal{P}_{\mathrm N}|=14$.
+Draw a uniform permutation $\pi$ of $\mathcal{P}_{\mathrm N}$ from
+\[
+\mathrm{RNG}\bigl(\mathrm{PEM}(\sk)\,\|\,\text{\texttt{ntru-rs}}\,\|\,24\,\|\,10\,\|\,\rho\bigr),
+\qquad \rho=0.42.
+\]
+Set $K=\max\bigl(4,\lfloor \rho|\mathcal{P}_{\mathrm N}|\rfloor\bigr)$, capped at
+$\lfloor|\mathcal{P}_{\mathrm N}|/2\rfloor$; in the locked configuration $K=6$.
+Define on-support $\Omega=\{\pi(1),\ldots,\pi(K)\}$ and control
+$\Omega^{\mathrm c}=\{\pi(K+1),\ldots,\pi(14)\}$ (both sorted).
+Embedding amplitudes use $a_{m-1}=A_{\mathrm{on}}$ on $\Omega$ and
+$a_{m-1}=A_{\mathrm{floor}}$ elsewhere, with $A_{\mathrm{on}}=3.35$,
+$A_{\mathrm{floor}}=0$.
+
+\paragraph{Phases and drive noise.}
+On each watermark channel $c\in\mathcal{C}_{\mathrm{wm}}$, draw
+$\phi_{m,c}\sim\mathrm{Unif}[0,2\pi)$ from
+$\mathrm{RNG}(\mathrm{PEM}(\sk)\,\|\,\text{\texttt{ntru-phase}}\,\|\,c)$ and
+i.i.d.\ $\xi\sim\mathcal{N}(0,\sigma_{\mathrm{drv}}^2)$ on ring pixels with
+$\sigma_{\mathrm{drv}}=0.22$.
+
+\subsection{Geometry: outer annulus on the latent grid}
+\label{sec:b3-geom}
+
+On each channel's $64\times64$ slice, integer radius
+$\hat r=\mathrm{round}(\sqrt{(y-c_y)^2+(x-c_x)^2})$ about $(c_y,c_x)=(31.5,31.5)$.
+
+\paragraph{Payload annulus.}
+The default implementation uses
+\[
+R_{\mathrm{in}}=16,\qquad R_{\mathrm{out}}=28,\qquad
+\mathcal{C}_{\mathrm{wm}}=\{0,1,2,3\}.
+\]
+For each $(c,\hat r)$ with $R_{\mathrm{in}}\le\hat r\le R_{\mathrm{out}}$, collect
+flat indices sorted by $\theta=\mathrm{atan2}(y-c_y,x-c_x)$; concatenate over radii
+and channels into payload index set $\mathcal{R}_{\mathrm{pay}}$ ($|\mathcal{R}_{\mathrm{pay}}|=7248$ in the four-channel lock).
+Some benchmark scripts temporarily set $\mathcal{C}_{\mathrm{wm}}=\{3\}$ for
+comparability with other carriers; the algorithm is unchanged.
+
+\paragraph{Protected inner disk.}
+$\mathcal{R}_{\mathrm{in}}=\{\text{pixels with }\hat r<R_{\mathrm{in}}\text{ on all channels}\}$.
+Repair pool $\mathcal{U}=\{1,\ldots,4HW\}\setminus(\mathcal{R}_{\mathrm{pay}}\cup\mathcal{R}_{\mathrm{in}})$.
+
+\subsection{Carrier: sign blend plus magnitude harmonic field}
+\label{sec:b3-carrier}
+
+\paragraph{Initial noise.}
+Draw $z_0\in\mathbb{R}^{4\times H\times W}$, $H=W=64$, i.i.d.\ $\mathcal{N}(0,1)$;
+only $z_0$ is modified before denoising.
+
+\paragraph{Angular drive (per channel ring).}
+On payload index set $I$ with angles $\{\theta_i\}$,
+\[
+h(\theta)=\sum_{m=1}^{M} a_{m-1}\cos(m\theta+\phi_{m,c})+\xi(\theta),\qquad
+s_i=\mathrm{sign}\bigl(h(\theta_i)\bigr)\in\{\pm1\}\ \text{(0 $\mapsto$ $+1$)}.
+\]
+
+\paragraph{Sign blend.}
+With blend $\beta=0.47$,
+\[
+z_i \leftarrow (1-\beta)\,z_i + \beta\,|z_i|\,s_i,\qquad i\in I.
+\]
+
+\paragraph{Magnitude field.}
+Normalize $h$ without noise on ring $I$:
+$\widetilde h=\mathrm{clip}(h/\mathrm{RMS}(h),-3,3)$.
+Add
+\[
+z_i \leftarrow z_i + \eta\,|z_i|\,\widetilde h(\theta_i),\qquad \eta=0.26,\quad i\in I.
+\]
+
+\paragraph{Pseudorandom repair (embed only).}
+Using $\mathrm{RNG}(\mathrm{PEM}(\sk)\,\|\,\text{\texttt{ring\_ntru:uniform\_bits}})$,
+flip signs only at indices in~$\mathcal{U}$ (up to eight outer rounds, with
+mean-rebalancing and lag-correlation reduction on~$\mathcal{U}$), until the
+\emph{full} $4HW$ raster passes the uniform-bits gate with score $\ge 0.99$.
+Separately, angular magnitude leakage on the payload ring is penalized so that
+peak/mean of magnitude-weighted $|c_m|^2$ stays below a development ceiling
+($\approx 3.5$ peak/mean ratio).
+
+\paragraph{Generative forward.}
+Marked $z_0$ is passed as \texttt{latents} to Stable Diffusion ($512\times512$ RGB,
+fixed step count, e.g.\ 15) with prompt~$p$; output $I=\mathrm{SD}(p,z_0)$.
+
+\subsection{Detection: whitened PSD and robust support contrast}
+\label{sec:b3-detect}
+
+\paragraph{Angular PSD (multi-channel).}
+After $\hat z=\mathcal{E}(I)$, for each $c\in\mathcal{C}_{\mathrm{wm}}$ form samples
+$\{(\theta_j,\hat z_{c,j})\}$ on that channel's annulus rings (same geometry as embed).
+For each channel, compute discrete $|c_m|^2$ as in~\Cref{alg:anyangle-detect}
+(optional sign-only or magnitude-weight preprocessing per branch), then \emph{sum}
+PSD across channels into $\mathrm{PSD}\in\mathbb{R}^M$.
+
+\paragraph{Log-spectrum whitening.}
+Let $x_m=\log(\mathrm{PSD}[m-1]+\varepsilon)$. Convolve $\{x_m\}$ with a fixed
+7-tap symmetric kernel (triangular weights) and divide
+\[
+\widetilde{\mathrm{PSD}}[m-1]
+\leftarrow \frac{\mathrm{PSD}[m-1]}{\exp(\mathrm{smoothed\ log})+\varepsilon}.
+\]
+
+\paragraph{Support scores.}
+With $(\Omega,\Omega^{\mathrm c})$ recomputed from $\mathrm{PEM}(\sk)$, define
+mean contrast
+\[
+s_{\mathrm{mean}}=
+\frac{\mean_{i\in\Omega}\widetilde{\mathrm{PSD}}[i]
+-\mean_{i\in\Omega^{\mathrm c}}\widetilde{\mathrm{PSD}}[i]}
+{\mean_{i\in\Omega}\widetilde{\mathrm{PSD}}[i]
++\mean_{i\in\Omega^{\mathrm c}}\widetilde{\mathrm{PSD}}[i]+\varepsilon},
+\]
+median contrast $s_{\mathrm{med}}$ (same formula with medians), and
+$\mathrm{raw}_0=\max\{s_{\mathrm{mean}},s_{\mathrm{med}}\}$.
+
+\paragraph{Branch fusion (NTRU only).}
+Compute $\mathrm{raw}_0$ on float PSD; optionally replace with sign-thresholded PSD
+if improvement exceeds $0.08$; optionally replace with magnitude-weighted float PSD
+if improvement exceeds $0.20$. Let $\mathrm{raw}$ be the selected value.
+
+\begin{algorithm}[t]
+\caption{Blind detection (B3 / \texttt{ring\_ntru})}
+\label{alg:b3-detect}
+\begin{algorithmic}[1]
+\Require RGB image $I$, secret key $\sk$, VAE encoder $\mathcal{E}$,
+  threshold $\tau$, layout $(R_{\mathrm{in}},R_{\mathrm{out}},\mathcal{C}_{\mathrm{wm}},M,K)$
+\State $\hat z \leftarrow \mathcal{E}(I)$
+\State Recompute $(\Omega,\Omega^{\mathrm c})$ from $\mathrm{PEM}(\sk)$ (\Cref{sec:b3-key})
+\State $\mathrm{PSD}\leftarrow 0$; for each $c\in\mathcal{C}_{\mathrm{wm}}$:
+  accumulate $|c_m|^2$ on channel-$c$ annulus into $\mathrm{PSD}$
+\State $\widetilde{\mathrm{PSD}}\leftarrow \mathrm{WhitenLog}(\mathrm{PSD})$
+\State $\mathrm{raw}\leftarrow \mathrm{RobustContrast}(\widetilde{\mathrm{PSD}},\Omega,\Omega^{\mathrm c})$
+  \Comment{mean/median on-support vs control}
+\State Optionally refine $\mathrm{raw}$ using sign-PSD and mag-weight PSD branches
+\State $\mathrm{peak}\leftarrow \mathrm{clip}\bigl((\mathrm{raw}+0.06)/0.68,\,0,\,1\bigr)$
+\State \Return $\mathbf{1}[\mathrm{peak}\ge\tau]$
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Detection-call budget.}
+One VAE encode and one fused score (\Cref{alg:b3-detect}); no angle or center search.
+
+\subsection{Rotation attack protocol (evaluation)}
+\label{sec:b3-rot}
+
+Use the same expand-and-resize pixel rotation as~\Cref{sec:anyangle-rot} on
+watermarked images.
+Small-angle suites (e.g.\ $\pm1^\circ$--$\pm5^\circ$) report rotation pass rate
+separately from clean-image F1; the detector never counter-rotates.
+
+\subsection{Threshold calibration}
+\label{sec:b3-calib}
+
+\paragraph{Default floor.}
+For \texttt{ring\_ntru} / \texttt{sd\_b3}, $\tau_{\mathrm{floor}}=0.48$ on the clipped
+peak scale of \Cref{alg:b3-detect}.
+
+\paragraph{Negative-driven rule (catalog / \texttt{calibrate\_threshold}).}
+Collect peaks $\{p_i^{\mathrm{neg}}\}$ on $n_{\mathrm{neg}}$ unmarked SD images (or
+Gaussian latents if no pipe).
+Robustify: median/MAD inliers, $q_{0.85}$ on inliers, margins
+($+0.018$ for NTRU), soft cap at $q_{0.95}+0.015$, optional anchor from
+$n_{\mathrm{anchor}}=12$ unmarked Gaussian latents scored in latent space
+($q_{0.95}+0.02$).
+Set $\tau=\max(\tau_{\mathrm{floor}},\min\{\text{MAD/q/soft caps}\})$; ignore isolated
+negative outliers above $\tau_{\mathrm{base}}+0.12$ when flagged.
+
+\paragraph{Pseudorandom embed gate.}
+Report $\min\{\text{uniform-bits score on full raster},\ \text{angular-mag score on payload}\}$ after embed on a dummy latent; require $\ge 0.99$ for PR tables.
+
+\subsection{Locked operating point and relation to any-angle}
+\label{sec:b3-params}
+
+Reference \texttt{pk\_ring\_mass} (\texttt{ring\_ntru}) uses
+\[
+(R_{\mathrm{in}},R_{\mathrm{out}},\mathcal{C}_{\mathrm{wm}},M,M_{\mathrm{ntru}},\rho,
+A_{\mathrm{on}},\beta,\eta)
+=(16,28,\{0,1,2,3\},24,10,0.42,3.35,0.47,0.26),
+\]
+$K=6$ on-support harmonics among $m\ge 10$, payload size $7248$ (four channels),
+zero user payload bits, symmetric key, $\tau_{\mathrm{floor}}=0.48$.
+Compared to~\Cref{sec:app-anyangle}, any-angle moves the annulus inward
+($10$--$18$), uses a single channel, shorter harmonic band ($M=12$, $m=3..12$),
+\emph{sign-blend-free} magnitude-only embed, no log whitening, and a simpler
+negative threshold rule---while sharing the same SD+$z_0$-only threat model and
+one-shot $|c_m|^2$ philosophy.

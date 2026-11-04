@@ -1,0 +1,231 @@
+\section{Application: Any-Angle Circ-Harmonic Latent Watermark}
+\label{sec:app-anyangle}
+
+The section below instantiates a \emph{zero-bit}, keyed presence watermark on
+Stable Diffusion initial noise.
+Generation draws i.i.d.\ Gaussian \(z_0\in\mathbb{R}^{4\times64\times64}\), applies a
+keyed mid-annulus circ-harmonic field on latent channel~3 only, and runs the full
+denoising pipeline to an RGB image.
+Detection inverts the VAE once and scores angular harmonic energy on the same
+spatial ring; it does not search rotation, sector index, or residual angle.
+Reported metrics (F1 on clean watermarked images, rotation pass rate under
+expand-and-resize, false positives on unmarked SD images, visual quality) are
+\emph{application} numbers on this instance.
+They are not proofs of~(C), (S), (P), or~(R).
+The carrier carries no user message bits; the decision is approximately one bit
+per image (present vs.\ absent under the keyed template).
+Rotation attacks rotate the \emph{pixel} image with \texttt{expand=True} and
+resize back to the original canvas (bicubic rotation, Lanczos resize); this is
+not pad-and-crop and is not inverted at detect time.
+
+\subsection{Key material and trapdoor support}
+\label{sec:anyangle-key}
+
+\paragraph{Secret key.}
+The implementation stores a PRC/LDPC key object; the any-angle codec uses only its
+canonical PEM string \(\mathrm{PEM}(\sk)\) as a seed for deterministic pseudorandom
+objects.
+No LDPC encode, parity check, or syndrome appears in embed or detect for this
+scheme (\emph{symmetric}: the same \(\sk\) embeds and verifies).
+
+\paragraph{Keyed PRNG.}
+For a UTF-8 tag~\(T\), define
+\[
+\mathrm{RNG}(T)=\mathrm{PRNG}\bigl(\lfloor \mathrm{SHA256}(T)\rfloor_{64}\bigr),
+\]
+where the subscript denotes the first 64 hexadecimal digits interpreted as an integer.
+
+\paragraph{Harmonic trapdoor \((\Omega,\Omega^{\mathrm c})\).}
+Let angular orders be indexed \(m\in\{1,\ldots,M\}\) with \(M=12\).
+The trapdoor pool is the zero-based index set
+\[
+\mathcal{P}=\{m-1:\ m\in\{M_{\mathrm{lo}},\ldots,M_{\mathrm{hi}}\}\},
+\qquad M_{\mathrm{lo}}=3,\ M_{\mathrm{hi}}=12,
+\]
+so \(|\mathcal{P}|=10\).
+Draw a uniform permutation \(\pi\) of \(\mathcal{P}\) from
+\(\mathrm{RNG}(\mathrm{PEM}(\sk)\,\|\,\text{\texttt{any-ntru}}\,\|\,3\,\|\,12\,\|\,6)\).
+Split \(\pi\) into
+\[
+\Omega=\{\pi(1),\ldots,\pi(K)\},\qquad
+\Omega^{\mathrm c}=\{\pi(K+1),\ldots,\pi(10)\},
+\qquad K=6.
+\]
+Indices in \(\Omega\) are \emph{on-support}; indices in \(\Omega^{\mathrm c}\) are
+\emph{control}.
+Both sets are sorted ascending before use.
+Amplitudes for embedding use \(a_m=\mathbf{1}[m-1\in\Omega]\) (unit on-support, zero
+off-support within \(1..M\)).
+
+\paragraph{Phases.}
+For watermark channel \(c=3\), draw
+\(\phi_m\sim\mathrm{Unif}[0,2\pi)\) i.i.d.\ from
+\(\mathrm{RNG}(\mathrm{PEM}(\sk)\,\|\,\text{\texttt{any-phase}}\,\|\,c)\).
+
+\subsection{Geometry: mid annulus on the latent grid}
+\label{sec:anyangle-geom}
+
+Work on the \(64\times64\) spatial slice of each latent channel with integer
+radius \(\hat r=\mathrm{round}(\sqrt{(y-c_y)^2+(x-c_x)^2})\) about the grid center
+\((c_y,c_x)=(31.5,31.5)\) in pixel coordinates.
+
+\paragraph{Payload annulus.}
+Pixels with \(\hat r\in\{R_{\mathrm{in}},\ldots,R_{\mathrm{out}}\}\),
+\(R_{\mathrm{in}}=10\), \(R_{\mathrm{out}}=18\), on channel~3 form the payload.
+For each integer radius, collect flat indices sorted by polar angle
+\(\theta=\mathrm{atan2}(y-c_y,x-c_x)\); concatenate radii
+\(10,\ldots,18\) into one ordered list
+\(\{( \theta_j, z_j)\}_{j=1}^{N}\) with \(N=792\) in the locked configuration
+(rings with fewer than 16 pixels are skipped at embed; all nine radii are active).
+
+\paragraph{Protected sets.}
+Let \(\mathcal{R}_{\mathrm{pay}}\) be all flat indices on the payload annulus
+(channel~3) and \(\mathcal{R}_{\mathrm{in}}\) be indices with \(\hat r<R_{\mathrm{in}}\)
+on all four channels.
+The \emph{repair pool} is
+\[
+\mathcal{U}=\{1,\ldots,4HW\}\setminus
+\bigl(\mathcal{R}_{\mathrm{pay}}\cup\mathcal{R}_{\mathrm{in}}\bigr).
+\]
+Sign flips for pseudorandomness never touch \(\mathcal{R}_{\mathrm{pay}}\) or
+\(\mathcal{R}_{\mathrm{in}}\) (face/core latent is frozen).
+
+\subsection{Carrier: magnitude-weighted circ-harmonic field on \(z_0\)}
+\label{sec:anyangle-carrier}
+
+\paragraph{Initial noise.}
+Draw \(z_0\in\mathbb{R}^{4\times H\times W}\) i.i.d.\ \(\mathcal{N}(0,1)\) with
+\(H=W=64\) from the generation seed.
+Only \(z_0\) is modified before denoising; no step-wise latent edits.
+
+\paragraph{Angular drive.}
+On each payload radius ring with index set \(I_r\), angles \(\theta_i\) and host
+values \(z_i\), form the normalized harmonic field
+\[
+h(\theta)=\sum_{m=1}^{M} a_{m-1}\cos(m\theta+\phi_m),\qquad
+\widetilde h(\theta)=\mathrm{clip}\!\left(\frac{h(\theta)}{\mathrm{RMS}(h)},\,-3,\,3\right),
+\]
+with \(\mathrm{RMS}(h)=\sqrt{\mathbb{E}[h(\theta)^2]}+\varepsilon\) over pixels on
+that ring.
+The locked field strength is \(\alpha=0.62\).
+Update
+\[
+z_i \leftarrow z_i + \alpha\,|z_i|\,\widetilde h(\theta_i),
+\qquad i\in I_r,\ c=3.
+\]
+Other channels remain the original Gaussian draw except for subsequent repair on
+\(\mathcal{U}\).
+
+\paragraph{Pseudorandom sign repair (embed side only).}
+Let \(\mathrm{flat}(z)\) be the rasterized latent.
+Using \(\mathrm{RNG}(\mathrm{PEM}(\sk)\,\|\,\text{\texttt{:anyangle:uniform\_bits}})\),
+apply up to six rounds of keyed single-index sign flips on indices in~\(\mathcal{U}\),
+with occasional mean-rebalancing of \(\pm1\) counts on~\(\mathcal{U}\), until the
+\emph{uniform-bits} score on~\(\mathcal{U}\) reaches \(0.99\)
+(development gate aligned with the PRC threat model).
+This is an embed-time constraint, not a detector early-reject rule.
+
+\paragraph{Generative forward.}
+Feed the marked \(z_0\) as \texttt{latents} to Stable Diffusion
+(\(512\times512\) RGB, fixed step count in experiments, e.g.\ 15 DDIM steps) with
+prompt~\(p\).
+The output image is \(I=\mathrm{SD}(p,z_0)\).
+
+\subsection{Detection: one-shot harmonic PSD and keyed contrast}
+\label{sec:anyangle-detect}
+
+\begin{algorithm}[t]
+\caption{Blind detection (any-angle circ-harmonic NTRU)}
+\label{alg:anyangle-detect}
+\begin{algorithmic}[1]
+\Require RGB image \(I\), secret key \(\sk\), VAE encoder \(\mathcal{E}\),
+  threshold \(\tau\), layout \((R_{\mathrm{in}},R_{\mathrm{out}},c=3,M,K)\)
+\State \(\hat z \leftarrow \mathcal{E}(I)\) \Comment{single VAE encode, no diffusion invert}
+\State Recompute \((\Omega,\Omega^{\mathrm c})\) from \(\mathrm{PEM}(\sk)\) (\Cref{sec:anyangle-key})
+\State Extract payload samples \(\{(\theta_j,\hat z_j)\}_{j=1}^{N}\) on channel~3,
+  annulus \([R_{\mathrm{in}},R_{\mathrm{out}}]\)
+\State Build \(z\in\mathbb{R}^N\) from \(\hat z_j\); optionally magnitude-weight:
+  \(z_j\leftarrow \hat z_j\sqrt{|\hat z_j|+\varepsilon}\) then scale to unit mean weight
+\State \(z\leftarrow (z-\bar z)/(\|z\|_2+\varepsilon)\)
+\For{$m=1,\ldots,M$}
+  \State \(c_m \leftarrow \frac{1}{N}\sum_j z_j e^{-im\theta_j}\) \Comment{discrete angular Fourier}
+  \State \(\mathrm{PSD}[m-1] \leftarrow |c_m|^2\)
+\EndFor
+\State \(s_1 \leftarrow \dfrac{\mean_{i\in\Omega}\mathrm{PSD}[i]-\mean_{i\in\Omega^{\mathrm c}}\mathrm{PSD}[i]}
+  {\mean_{i\in\Omega}\mathrm{PSD}[i]+\mean_{i\in\Omega^{\mathrm c}}\mathrm{PSD}[i]+\varepsilon}\)
+  \Comment{support contrast}
+\State Build template \(g_i=+1\) for \(i\in\Omega\), \(g_i=-1\) for \(i\in\Omega^{\mathrm c}\);
+  \(s_2\leftarrow\) Pearson\((\mathrm{PSD}|_{\Omega\cup\Omega^{\mathrm c}}, g)\)
+\State Repeat \(s_1,s_2\) with magnitude-weighted~\(z\); \(\mathrm{raw}\leftarrow\max\{s_1,s_2,\ldots\}\)
+\State \(\mathrm{peak}\leftarrow \mathrm{clip}\bigl((\mathrm{raw}-0.15)/0.70,\,0,\,1\bigr)\)
+\State \Return \(\mathbf{1}[\mathrm{peak}\ge\tau]\)
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Rotation invariance (ideal vs.\ deployed).}
+For pure plane rotation about the latent center, each coefficient transforms as
+\(c_m\mapsto e^{im\Delta\theta}c_m\), hence \(|c_m|\) and \(\mathrm{PSD}[m-1]\) are
+exactly invariant.
+Expand-and-resize on pixels, VAE nonlinearity, and denoising break this ideal;
+the detector deliberately performs \emph{no} angle search, deskew, or center
+synchronization (\(L=1\) extraction, one syndrome-free score).
+
+\paragraph{Detection-call budget.}
+Each verification uses exactly one VAE encode and one pass through
+\Cref{alg:anyangle-detect} (four internal score branches collapsed by max).
+
+\subsection{Rotation attack protocol (evaluation)}
+\label{sec:anyangle-rot}
+
+Given watermarked image \(I_w\), draw \(\Delta\sim\mathrm{Unif}[0,360)\) and form
+\[
+I_{\mathrm{rot}}=
+\mathrm{Resize}_{512\times512}\!\Bigl(
+\mathrm{Rotate}_{\mathrm{bicubic}}(I_w,\Delta;\,\texttt{expand=True})
+\Bigr).
+\]
+Verify with \(\sk\) on \(I_{\mathrm{rot}}\) as in \Cref{alg:anyangle-detect} without
+counter-rotation.
+This matches the repository rotation-eval contract (attack-then-verify-as-is).
+
+\subsection{Threshold calibration}
+\label{sec:anyangle-calib}
+
+Every evaluation run freezes a scalar threshold~\(\tau\) before scoring test images.
+
+\paragraph{Default floor.}
+\(\tau_{\mathrm{floor}}=0.5\) on the clipped peak scale of \Cref{alg:anyangle-detect}.
+
+\paragraph{Negative-driven rule (large-sample script).}
+On \(n_{\mathrm{neg}}\) unmarked SD images generated with the same pipeline and prompt
+distribution, collect peaks \(\{p_i^{\mathrm{neg}}\}\).
+Let \(q_{0.85}\) be their 85th percentile.
+Set
+\[
+\tau=\max\bigl(\tau_{\mathrm{floor}},\ q_{0.85}+0.03\bigr).
+\]
+Positives are watermarked images at zero rotation for F1-style summaries; rotation
+robustness is reported separately as the fraction of attacked positives with
+\(\mathrm{peak}\ge\tau\).
+
+\paragraph{Pseudorandom embed gate (reporting).}
+Before benchmark runs, the scheme may report a \emph{pseudorandom metric}:
+uniform-bits score on~\(\mathcal{U}\) after embed-only on a dummy Gaussian latent,
+required to pass the same \(0.99\) gate used during repair.
+Reproducing PR tables requires this check; it is independent of~\(\tau\).
+
+\subsection{Locked operating point}
+\label{sec:anyangle-params}
+
+The reference implementation (\texttt{pk\_ring\_anyangle}) uses
+\[
+(R_{\mathrm{in}},R_{\mathrm{out}},c,M,M_{\mathrm{lo}},M_{\mathrm{hi}},K,\alpha)
+=(10,18,3,12,3,12,6,0.62),
+\]
+payload size \(N=792\), zero user payload bits, symmetric key,
+\(\tau_{\mathrm{floor}}=0.5\), and SD~\(512\times512\) with latent
+\(4\times64\times64\).
+Historical large-sample benchmarks under expand-and-resize rotation report
+order-of-magnitude clean pass \(\approx85\%\), rotation pass \(\approx47\%\) on
+96 attacked draws (48 seeds, two random angles each), and F1 \(\approx0.91\) when
+positives are defined on clean watermarked images only (\Cref{sec:anyangle-calib}).
