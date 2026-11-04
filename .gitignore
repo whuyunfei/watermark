@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.venv/
+wyfcode3/models/
+wyfcode3/output/
