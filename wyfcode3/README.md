@@ -24,6 +24,12 @@ python eval_quick.py
 
 `eval_quick.py` 会在没有权重时先下载，然后生成同一 seed 的无水印图、水印图和一张随机旋转图，保存三联对比图。不计算 PSNR / SSIM。
 
+`eval_f1.py` 用 20 张水印图和 20 张干净图计算 F1，并用这 20 张水印图各做一次随机旋转（expand 后再缩回 512）统计抗旋转通过率。阈值在打分前由无关高斯 latent 校准，并写入 `output/threshold.json`。结果写到仓库 `results/summary_wyfcode3.json`。中断后重跑同一命令会从 `output/eval_f1/records.jsonl` 续跑。
+
+```powershell
+python eval_f1.py
+```
+
 没写过阈值时，检测用一组无关高斯 latent 快速估一个阈值，并提示你再跑 `python calibrate.py`（干净 SD 负样本，和正式评测一致）。原先 100 张实验在旧密钥上的阈值是 0.557，换密钥后要重新校准。
 
 ## 命令

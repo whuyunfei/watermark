@@ -114,7 +114,10 @@ def generate_clean(pipe, prompt: str, *, seed: int, steps: int, height: int = 51
         generator=gen,
         return_dict=False,
     )
-    return out[0]
+    images = out[0]
+    if isinstance(images, (list, tuple)):
+        return images[0]
+    return images
 
 
 def generate_watermarked(
