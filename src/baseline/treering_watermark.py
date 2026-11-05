@@ -43,7 +43,7 @@ def _get_pattern(shape, w_pattern='ring', generator=None):
 
 
 # def get_noise(shape: Union[torch.Size, List, Tuple], model_hash: str) -> torch.Tensor:
-def tr_get_noise(shape: Union[torch.Size, List, Tuple], keys_path, from_file: str = None, generator=None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def tr_get_noise(shape: Union[torch.Size, List, Tuple], keys_path, from_file: str = None, generator=None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, str]:
     if not from_file:
         # for now we hard code all hyperparameters
         w_channel = 0  # id for watermarked channel
@@ -75,15 +75,16 @@ def tr_get_noise(shape: Union[torch.Size, List, Tuple], keys_path, from_file: st
         hash_object = hashlib.sha256(tensor_bytes)
         hex_dig = hash_object.hexdigest()
 
-        file_name = "_".join([hex_dig, str(w_channel), str(w_radius), w_pattern]) + ".pkl"
-        file_path = os.path.join(keys_path, file_name)
+        key_id = "_".join([hex_dig, str(w_channel), str(w_radius), w_pattern])
+        file_path = os.path.join(keys_path, key_id + ".pkl")
         print(f"Saving watermark key to {file_path}")
+        os.makedirs(keys_path, exist_ok=True)
         with open(f'{file_path}', 'wb') as f:
             pickle.dump((w_key, w_mask), f)
 
     else:
-        file_name = f"{from_file}.pkl"
-        file_path = os.path.join(keys_path, file_name)
+        key_id = from_file
+        file_path = os.path.join(keys_path, key_id + ".pkl")
 
         with open(f'{file_path}', 'rb') as f:
             w_key, w_mask = pickle.load(f)
@@ -93,7 +94,7 @@ def tr_get_noise(shape: Union[torch.Size, List, Tuple], keys_path, from_file: st
         init_latents_fft[w_mask] = w_key[w_mask].clone()
         init_latents = torch.fft.ifft2(torch.fft.ifftshift(init_latents_fft, dim=(-1, -2))).real
 
-    return init_latents, w_key, w_mask
+    return init_latents, w_key, w_mask, key_id
 
 
 def _transform_img(image, target_size=512):
@@ -109,8 +110,7 @@ def _transform_img(image, target_size=512):
 
 
 # def detect(image: Union[PIL.Image.Image, torch.Tensor, np.ndarray], model_hash: str):
-def tr_detect(image: Union[PIL.Image.Image, torch.Tensor, np.ndarray], pipe, keys_path, model_hash):
-    detection_time_num_inference = 50
+def tr_detect(image: Union[PIL.Image.Image, torch.Tensor, np.ndarray], pipe, keys_path, model_hash, num_inference_steps=50):
     threshold = 72
 
     file_name = f"{model_hash}.pkl"
@@ -124,20 +124,20 @@ def tr_detect(image: Union[PIL.Image.Image, torch.Tensor, np.ndarray], pipe, key
     pipe.scheduler = DDIMInverseScheduler.from_config(pipe.scheduler.config)
     img = _transform_img(image).unsqueeze(0).to(pipe.unet.dtype).to(pipe.device)
     image_latents = pipe.vae.encode(img).latent_dist.mode() * 0.18215
-    inverted_latents = pipe(
+    inverted = pipe(
         prompt='',
         latents=image_latents,
         guidance_scale=1,
-        num_inference_steps=detection_time_num_inference,
+        num_inference_steps=num_inference_steps,
         output_type='latent',
     )
-    inverted_latents = inverted_latents.images.float().cpu()
+    # This fork's pipeline returns (output, latents) so generate() can keep the initial noise.
+    if isinstance(inverted, tuple):
+        inverted = inverted[0]
+    inverted_latents = inverted.images.float().cpu()
 
     inverted_latents_fft = torch.fft.fftshift(torch.fft.fft2(inverted_latents), dim=(-1, -2))
     dist = torch.abs(inverted_latents_fft[w_mask] - w_key[w_mask]).mean().item()
 
-    if dist <= threshold:
-        pipe.scheduler = curr_scheduler
-        return dist, True
-
-    return dist, False
+    pipe.scheduler = curr_scheduler
+    return dist, dist <= threshold

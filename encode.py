@@ -16,7 +16,7 @@ from inversion import stable_diffusion_pipe, generate
 parser = argparse.ArgumentParser('Args')
 parser.add_argument('--test_num', type=int, default=10)
 parser.add_argument('--method', type=str, default='prc') # gs, tr, prc
-parser.add_argument('--model_id', type=str, default='stabilityai/stable-diffusion-2-1-base')
+parser.add_argument('--model_id', type=str, default='sd2-community/stable-diffusion-2-1-base')
 parser.add_argument('--dataset_id', type=str, default='Gustavosta/Stable-Diffusion-Prompts') # coco 
 parser.add_argument('--inf_steps', type=int, default=50)
 parser.add_argument('--nowm', type=int, default=0)
@@ -42,6 +42,7 @@ nowm = args.nowm
 fpr = args.fpr
 prc_t = args.prc_t
 exp_id = f'{method}_num_{test_num}_steps_{args.inf_steps}_fpr_{fpr}_nowm_{nowm}'
+os.makedirs('keys', exist_ok=True)
 
 if method == 'prc':
     if not os.path.exists(f'keys/{exp_id}.pkl'):  # Generate watermark key for the first time and save it to a file
@@ -69,10 +70,14 @@ elif method == 'gs':
             watermark_m, key, nonce, watermark = pickle.load(f)
             print(f'Loaded GS keys from file keys/{exp_id}.pkl')
 elif method == 'tr':
-    # need to generate watermark key for the first time then save it to a file, we just load previous key here
-    tr_key = '7c3fa99795fe2a0311b3d8c0b283c5509ac849e7f5ec7b3768ca60be8c080fd9_0_10_rand'
-    # tr_key = '4145007d1cbd5c3e28876dd866bc278e0023b41eb7af2c6f9b5c4a326cb71f51_0_9_rand'
-    print('Loaded TR keys from file')
+    if not os.path.exists(f'keys/{exp_id}.pkl'):
+        _, _, _, tr_key = tr_get_noise((1, 4, 64, 64), keys_path='keys/')
+        with open(f'keys/{exp_id}.pkl', 'wb') as f:
+            pickle.dump(tr_key, f)
+    else:
+        with open(f'keys/{exp_id}.pkl', 'rb') as f:
+            tr_key = pickle.load(f)
+        print(f'Loaded TR keys from file keys/{exp_id}.pkl')
 else:
     raise NotImplementedError
 
@@ -101,7 +106,8 @@ def seed_everything(seed, workers=False):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
     os.environ["PL_SEED_WORKERS"] = f"{int(workers)}"
     return seed
 
@@ -120,12 +126,12 @@ for i in tqdm(range(test_num)):
             init_latents = gs_watermark.truncSampling(watermark_m)
         elif method == 'tr':
             shape = (1, 4, 64, 64)
-            init_latents, _, _ = tr_get_noise(shape, from_file=tr_key, keys_path='keys/')
+            init_latents, _, _, _ = tr_get_noise(shape, from_file=tr_key, keys_path='keys/')
         else:
             raise NotImplementedError
-    # PRC samples in float64. The UNet is float32; MPS has no float64, so cast before the move.
-    # On CUDA the pipeline casts to float32 after scaling by init_noise_sigma (1 for DPM-Solver).
-    if device == 'mps' and init_latents.dtype == torch.float64:
+    # PRC samples in float64 and Gaussian Shading samples in float16 on CUDA.
+    # The UNet is float32. CUDA casts after scaling by init_noise_sigma; CPU and MPS do not.
+    if device != 'cuda' and init_latents.dtype != torch.float32:
         init_latents = init_latents.to(torch.float32)
     init_latents = init_latents.to(device)
     orig_image, _, _ = generate(prompt=current_prompt,

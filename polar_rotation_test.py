@@ -16,7 +16,7 @@ from scipy import stats
 import src.pseudogaussians as prc_gaussians
 from inversion import exact_inversion, generate, get_device, stable_diffusion_pipe
 from src.polar_watermark import PolarWatermark
-from src.prc import Decode, Detect, Encode
+from src.prc import Decode, Detect, Encode, KeyGen
 
 parser = argparse.ArgumentParser('Args')
 parser.add_argument('--test_num', type=int, default=4)
@@ -87,6 +87,11 @@ def prc_statistic(decoding_key, posteriors):
 def posteriors(latents):
     return prc_gaussians.recover_posteriors(latents.reshape(-1).to(torch.float64), variances=1.5).flatten()
 
+
+if args.prc_baseline and not os.path.exists(args.prc_key):
+    print(f'PRC baseline key {args.prc_key} is missing; generating it', flush=True)
+    with open(args.prc_key, 'wb') as f:
+        pickle.dump(KeyGen(4 * 64 * 64, false_positive_rate=args.fpr, t=3), f)
 
 key_path = 'keys/polar_key.pkl'
 if not os.path.exists(key_path):

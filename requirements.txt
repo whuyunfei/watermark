@@ -6,7 +6,12 @@
 # and datasets are pinned to releases that still support NumPy 1.26.
 torch==2.15.0
 torchvision==0.29.2
-transformers==4.29.2
+# 4.29.2 pulls tokenizers<0.14, which has no Python 3.12 wheel and does not
+# build with the system Rust. 4.38.2 still satisfies diffusers 0.21.4
+# (transformers>=4.25.1). tokenizers 0.15.2 has a cp312 wheel and accepts
+# huggingface_hub 0.25, which datasets 3.1.0 needs.
+transformers==4.38.2
+tokenizers==0.15.2
 diffusers==0.21.4
 numpy==1.26.0
 numba==0.60.0
@@ -22,7 +27,10 @@ opencv-python
 pycryptodome
 accelerate
 galois==0.4.1
-ldpc==0.1.51
+# 0.1.51 has no Python 3.12 wheel and its sdist does not compile on 3.12.
+# 0.1.53 is the same 0.1 decoder API with a cp312 wheel.
+ldpc==0.1.53
+lpips
 matplotlib
 jupyter
 tqdm
