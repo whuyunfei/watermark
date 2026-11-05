@@ -122,10 +122,10 @@ nowm_rows = [r for r in rows if r['label'] == 'nowm']
 result = {
     'args': vars(args), 'num_coefficients': wm.num_coefficients, 'detection': rows,
     'wm_detected': f"{sum(r['detected'] for r in wm_rows)}/{len(wm_rows)}",
-    'wm_min_score': min(r['score'] for r in wm_rows),
+    'wm_min_score': min(r['score'] for r in wm_rows) if wm_rows else None,
     'nowm_detected': f"{sum(r['detected'] for r in nowm_rows)}/{len(nowm_rows)}",
-    'nowm_max_score': max(r['score'] for r in nowm_rows),
-    'wrong_key_max_score': max(r['wrong_key_score'] for r in rows),
+    'nowm_max_score': max(r['score'] for r in nowm_rows) if nowm_rows else None,
+    'wrong_key_max_score': max(r['wrong_key_score'] for r in rows) if rows else None,
 }
 with open(f'{args.out}/summary.json', 'w') as f:
     json.dump(result, f, indent=2)
@@ -135,7 +135,7 @@ thumb = 256
 grid = Image.new('RGB', (thumb * 3, thumb * args.test_num), 'white')
 for i in range(args.test_num):
     nowm, marked = pair(i)
-    angle = next(r['attack_angle'] for r in wm_rows if r['image'] == i and r['attack_angle'] != 0)
+    angle = next(r['attack_angle'] for r in wm_rows if r['image'] == i)
     for c, tile in enumerate((nowm, marked, TF.rotate(marked, angle))):
         grid.paste(tile.resize((thumb, thumb)), (c * thumb, i * thumb))
 grid.save(f'{args.out}/compare_grid.png')
